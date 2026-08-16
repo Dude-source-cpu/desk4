@@ -1,0 +1,10 @@
+{
+  "name": "desk4",
+  "private": true,
+  "type": "module",
+  "description": "Web Bluetooth companion app for the Xteink X4 desk frame",
+  "scripts": {
+    "serve": "python3 -m http.server 8765",
+    "test": "node tests/browser.mjs"
+  }
+}
