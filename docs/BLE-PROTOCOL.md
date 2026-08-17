@@ -64,12 +64,19 @@ long press (rather than an automatic sync window). `chunkMax` is the largest
 
 Two frames arrive unsolicited:
 
-| Frame  | Payload                                | Meaning                              |
-| ------ | -------------------------------------- | ------------------------------------ |
-| `0x90` | `[acked u32]`                          | credit: bytes durably consumed so far |
-| `0x94` | `[size u32][nameLen u8][name bytes]`   | one `LIST` entry                     |
+| Frame  | Payload                              | Meaning                               |
+| ------ | ------------------------------------ | ------------------------------------- |
+| `0xE0` | `[acked u32]`                        | credit: bytes durably consumed so far |
+| `0xE1` | `[size u32][nameLen u8][name bytes]` | one `LIST` entry                      |
 
-`LIST` streams `0x94` entries and then completes with its `0x94|0x80` reply.
+`LIST` streams `0xE1` entries and then completes with its ordinary `0x94` reply.
+
+**Tag numbering is not free.** A reply is `0x80 | op` and opcodes run to `0x23`,
+so `0x81`–`0xA3` is reserved for replies; unsolicited frames must sit above it.
+These two originally used `0x90` and `0x94`, which are exactly the replies to
+`FILE_BEGIN` and `LIST` — a client that checks for notifications first swallows
+those completions and the command times out. Both ends carry an assertion
+against the collision now.
 
 ## File transfer
 

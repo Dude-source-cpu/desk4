@@ -11,8 +11,18 @@ export const OP = {
   APPLY: 0x20, NEXT_FACE: 0x21, SHOW_FACE: 0x22, BLE_OFF: 0x23,
 };
 
-const NOTIFY_CREDIT = 0x90;
-const NOTIFY_LIST_ENTRY = 0x94;
+// Unsolicited frames live above every possible reply tag. A reply is 0x80|op
+// and ops reach 0x23, so 0x81-0xA3 is spoken for; 0x90 and 0x94 used to sit on
+// the FILE_BEGIN and LIST replies and swallowed them as stray notifications.
+const NOTIFY_CREDIT = 0xe0;
+const NOTIFY_LIST_ENTRY = 0xe1;
+
+// Guards the numbering above against a future opcode creeping into the range.
+for (const tag of [NOTIFY_CREDIT, NOTIFY_LIST_ENTRY]) {
+  for (const [name, op] of Object.entries(OP)) {
+    if ((0x80 | op) === tag) throw new Error(`notify tag ${tag} collides with the ${name} reply`);
+  }
+}
 
 const STATUS_TEXT = {
   0x01: 'bad request',
