@@ -2,17 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>desk4 — Xteink X4 companion</title>
 <meta name="description" content="Send photos, weather, and quotes to an Xteink X4 over Bluetooth.">
-<meta name="theme-color" content="#f8f6f2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#17181a" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%232f5d9e'/><rect x='4' y='2.5' width='8' height='11' rx='1.5' fill='%23fff'/></svg>">
+<meta name="theme-color" content="#f7f1e3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#201d17" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%23b5622f'/><rect x='4' y='2.5' width='8' height='11' rx='1.5' fill='%23fffdf7'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 
-<!-- symbol library: referenced with <use> so icons cost one definition each -->
 <svg class="sprite" aria-hidden="true" focusable="false">
   <symbol id="i-device" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M10 5.5h4"/></symbol>
   <symbol id="i-faces" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></symbol>
@@ -52,6 +54,7 @@
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"></span>
     <span class="brand-text">desk4</span>
+    <span class="brand-sub">Xteink X4 companion</span>
   </div>
   <div class="conn">
     <span id="connPill" class="pill-status" data-state="off">
@@ -64,8 +67,8 @@
 
 <div id="unsupported" class="banner banner-warn" hidden>
   <strong>This browser can’t reach your frame.</strong>
-  <span>Bluetooth from a web page needs Chrome, Edge, or Opera. You can still set everything up
-  here and send it from one of those later.</span>
+  <span>Bluetooth from a web page needs Chrome, Edge, or Opera on a computer. You can still set
+  everything up here and send it from one of those later.</span>
 </div>
 
 <div id="hint" class="banner banner-hint" hidden>
@@ -73,34 +76,41 @@
   <button id="hintAction" class="link"></button>
 </div>
 
-<div class="layout">
-  <div class="col-main">
-    <nav class="tabs" role="tablist">
-      <button class="tab is-active" role="tab" data-panel="device">
-        <svg class="ico"><use href="#i-device"/></svg>Device
-      </button>
-      <button class="tab" role="tab" data-panel="faces">
-        <svg class="ico"><use href="#i-faces"/></svg>Screens
-      </button>
-      <button class="tab" role="tab" data-panel="photos">
-        <svg class="ico"><use href="#i-photos"/></svg>Photos
-      </button>
-      <button class="tab" role="tab" data-panel="content">
-        <svg class="ico"><use href="#i-content"/></svg>Content
-      </button>
-    </nav>
+<div class="shell">
+
+  <!-- ──────────────────────────── side nav ────────────────────────────── -->
+  <nav class="rail" role="tablist" aria-label="Sections">
+    <button class="tab is-active" role="tab" data-panel="device">
+      <svg class="ico"><use href="#i-device"/></svg><span>Device</span>
+    </button>
+    <button class="tab" role="tab" data-panel="faces">
+      <svg class="ico"><use href="#i-faces"/></svg><span>Screens</span>
+    </button>
+    <button class="tab" role="tab" data-panel="photos">
+      <svg class="ico"><use href="#i-photos"/></svg><span>Photos</span>
+    </button>
+    <button class="tab" role="tab" data-panel="content">
+      <svg class="ico"><use href="#i-content"/></svg><span>Content</span>
+    </button>
+    <div class="rail-foot">
+      <button id="btnWizard" class="btn btn-quiet">Setup guide</button>
+    </div>
+  </nav>
+
+  <main class="col-main">
 
     <!-- ─────────────────────────── Device ─────────────────────────────── -->
     <section class="panel is-active" data-panel="device">
+      <h1 class="page-title">Your frame</h1>
 
       <div id="setupCard" class="card hero">
         <div class="hero-icon"><svg class="ico ico-lg"><use href="#i-bt"/></svg></div>
         <div class="hero-body">
           <h2>First time here?</h2>
-          <p>Four short steps and your frame is running. It takes about five minutes.</p>
+          <p>Four short steps and your frame is running.</p>
         </div>
         <div class="hero-actions">
-          <button id="btnWizard" class="btn btn-primary btn-lg">Start setup</button>
+          <button id="btnWizardHero" class="btn btn-primary btn-lg">Start setup</button>
           <button id="btnStarterConfig" class="btn">Get config.json</button>
         </div>
       </div>
@@ -108,7 +118,7 @@
       <div class="card">
         <h2 class="card-title">Send your photos and content</h2>
         <p class="lead">Hold the power button on the frame for two seconds, until it says
-          <strong>Bluetooth is on</strong>. Then press send.</p>
+          <strong>Bluetooth is on</strong>. Then send.</p>
         <div class="actions">
           <button id="btnSync" class="btn btn-primary btn-lg" disabled>
             <svg class="ico"><use href="#i-check"/></svg>Send to frame
@@ -124,8 +134,8 @@
           <summary>Why do I have to hold the button?</summary>
           <p>Bluetooth is the most power-hungry thing in the frame, so it stays off. The frame does
             switch it on briefly after every screen change, but only for a few seconds — enough for
-            this page to reconnect on its own once paired, rarely enough to pair the first time.
-            Holding the button gives you five full minutes.</p>
+            this page to reconnect once paired, rarely enough to pair the first time. Holding the
+            button gives you five full minutes.</p>
           <p>While the frame is plugged in to USB it stays awake and reachable the whole time.</p>
         </details>
         <label class="check">
@@ -134,15 +144,31 @@
         </label>
       </div>
 
-      <div class="card">
-        <h2 class="card-title">Your frame</h2>
-        <ul class="stats">
-          <li><svg class="ico"><use href="#i-battery"/></svg><span class="stat-label">Battery</span><span id="stBattery" class="stat-value">—</span></li>
-          <li><svg class="ico"><use href="#i-folder"/></svg><span class="stat-label">Space left</span><span id="stFree" class="stat-value">—</span></li>
-          <li><svg class="ico"><use href="#i-photos"/></svg><span class="stat-label">Photos on frame</span><span id="stPhotos" class="stat-value">—</span></li>
-          <li><svg class="ico"><use href="#i-clock"/></svg><span class="stat-label">Last sent</span><span id="stSync" class="stat-value">—</span></li>
-        </ul>
-        <p class="tech muted small">Clock <span id="stClock">—</span> · <span id="stProto">—</span></p>
+      <div class="grid-2">
+        <div class="card">
+          <h2 class="card-title">Condition</h2>
+          <ul class="stats">
+            <li><svg class="ico"><use href="#i-battery"/></svg><span class="stat-label">Battery</span><span id="stBattery" class="stat-value">—</span></li>
+            <li><svg class="ico"><use href="#i-folder"/></svg><span class="stat-label">Space left</span><span id="stFree" class="stat-value">—</span></li>
+            <li><svg class="ico"><use href="#i-photos"/></svg><span class="stat-label">Photos on frame</span><span id="stPhotos" class="stat-value">—</span></li>
+            <li><svg class="ico"><use href="#i-clock"/></svg><span class="stat-label">Last sent</span><span id="stSync" class="stat-value">—</span></li>
+          </ul>
+          <p class="tech muted small">Clock <span id="stClock">—</span> · <span id="stProto">—</span></p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Which way up?</h2>
+          <div class="seg" role="radiogroup" aria-label="Orientation">
+            <button class="seg-btn is-active" data-orientation="portrait" role="radio" aria-checked="true">
+              <span class="seg-icon seg-portrait" aria-hidden="true"></span><span>Standing</span>
+            </button>
+            <button class="seg-btn" data-orientation="landscape" role="radio" aria-checked="false">
+              <span class="seg-icon seg-landscape" aria-hidden="true"></span><span>On its side</span>
+            </button>
+          </div>
+          <p class="muted small">Photos are cropped to fit, so if you change this you’ll want to send
+            them again — we’ll offer to redo them.</p>
+        </div>
       </div>
 
       <div class="card">
@@ -175,26 +201,11 @@
         </label>
         <p class="muted small">A quick press of the power button skips ahead at any time.</p>
       </div>
-
-      <div class="card">
-        <h2 class="card-title">Which way up?</h2>
-        <div class="seg" role="radiogroup" aria-label="Orientation">
-          <button class="seg-btn is-active" data-orientation="portrait" role="radio" aria-checked="true">
-            <span class="seg-icon seg-portrait" aria-hidden="true"></span>
-            <span>Standing</span>
-          </button>
-          <button class="seg-btn" data-orientation="landscape" role="radio" aria-checked="false">
-            <span class="seg-icon seg-landscape" aria-hidden="true"></span>
-            <span>On its side</span>
-          </button>
-        </div>
-        <p class="muted small">Photos are cropped to fit, so if you change this you’ll want to send
-          them again — we’ll offer to redo them for you.</p>
-      </div>
     </section>
 
     <!-- ──────────────────────────── Screens ───────────────────────────── -->
     <section class="panel" data-panel="faces">
+      <h1 class="page-title">Screens</h1>
       <div class="card">
         <h2 class="card-title">What your frame shows</h2>
         <p class="lead">Switch screens on or off, and drag to change the order they appear in.</p>
@@ -210,7 +221,7 @@
           <input type="checkbox" id="optBatteryWarn" checked>
           <span>Warn me on screen when the battery drops below 15%</span>
         </label>
-        <label class="field">
+        <label class="field field-narrow">
           <span>Temperature</span>
           <select id="optUnit">
             <option value="celsius">Celsius (°C)</option>
@@ -222,8 +233,8 @@
 
     <!-- ──────────────────────────── Photos ────────────────────────────── -->
     <section class="panel" data-panel="photos">
+      <h1 class="page-title">Photos</h1>
       <div class="card">
-        <h2 class="card-title">Your photos</h2>
         <div id="dropzone" class="dropzone">
           <input type="file" id="fileInput" accept="image/*" multiple hidden>
           <svg class="ico ico-lg drop-ico"><use href="#i-photos"/></svg>
@@ -231,7 +242,7 @@
           <p><button id="btnPick" class="btn btn-primary btn-lg">
             <svg class="ico"><use href="#i-plus"/></svg>Choose photos
           </button></p>
-          <p class="muted small">They’re resized and converted here, in your browser. Nothing is
+          <p class="muted small">They’re resized and converted right here in your browser. Nothing is
             uploaded anywhere except your frame.</p>
         </div>
         <details class="more">
@@ -273,6 +284,7 @@
 
     <!-- ─────────────────────────── Content ────────────────────────────── -->
     <section class="panel" data-panel="content">
+      <h1 class="page-title">Content</h1>
       <div class="card">
         <h2 class="card-title">Weather</h2>
         <p class="lead">Pick where you are, and the frame shows today’s forecast.</p>
@@ -286,27 +298,29 @@
         <button id="btnRefreshWeather" class="btn" disabled>Refresh forecast</button>
       </div>
 
-      <div class="card">
-        <h2 class="card-title">Quotes</h2>
-        <p class="lead">A different one each time the quote screen comes round. <span id="quoteCount"></span></p>
-        <textarea id="quoteInput" class="input textarea" rows="3"
-          placeholder="Type a quote here&#10;— and who said it"></textarea>
-        <div class="actions">
-          <button id="btnAddQuote" class="btn btn-primary">Add quote</button>
-          <button id="btnResetQuotes" class="btn">Use the built-in ones</button>
+      <div class="grid-2">
+        <div class="card">
+          <h2 class="card-title">Quotes</h2>
+          <p class="lead">A different one each time the quote screen comes round. <span id="quoteCount"></span></p>
+          <textarea id="quoteInput" class="input textarea" rows="3"
+            placeholder="Type a quote here&#10;— and who said it"></textarea>
+          <div class="actions">
+            <button id="btnAddQuote" class="btn btn-primary">Add quote</button>
+            <button id="btnResetQuotes" class="btn">Use the built-in ones</button>
+          </div>
+          <ul id="quoteList" class="mini-list"></ul>
         </div>
-        <ul id="quoteList" class="mini-list"></ul>
-      </div>
 
-      <div class="card">
-        <h2 class="card-title">Countdowns</h2>
-        <p class="lead">Birthdays, trips, anything you’re counting down to.</p>
-        <div class="actions">
-          <input type="text" id="eventTitle" class="input" placeholder="What is it?">
-          <input type="date" id="eventDate" class="input">
-          <button id="btnAddEvent" class="btn btn-primary">Add</button>
+        <div class="card">
+          <h2 class="card-title">Countdowns</h2>
+          <p class="lead">Birthdays, trips, anything you’re counting down to.</p>
+          <div class="actions">
+            <input type="text" id="eventTitle" class="input" placeholder="What is it?">
+            <input type="date" id="eventDate" class="input">
+            <button id="btnAddEvent" class="btn btn-primary">Add</button>
+          </div>
+          <ul id="eventList" class="mini-list"></ul>
         </div>
-        <ul id="eventList" class="mini-list"></ul>
       </div>
 
       <div class="card">
@@ -317,7 +331,7 @@
         </label>
       </div>
     </section>
-  </div>
+  </main>
 
   <!-- ──────────────────────────── Preview ─────────────────────────────── -->
   <aside class="col-side">
@@ -326,7 +340,6 @@
         <h2 class="card-title">Preview</h2>
         <div class="preview-nav">
           <button id="btnPrevPreview" class="icon-btn" aria-label="Previous screen">‹</button>
-          <span id="previewLabel" class="preview-label">—</span>
           <button id="btnNextPreview" class="icon-btn" aria-label="Next screen">›</button>
         </div>
       </div>
@@ -335,8 +348,9 @@
           <canvas id="preview" width="480" height="800"></canvas>
         </div>
       </div>
-      <p class="muted small preview-note">Photos look exactly like this on the frame. Text screens are
-        drawn here with different fonts, so spacing will shift slightly.</p>
+      <p id="previewLabel" class="preview-label">—</p>
+      <p class="muted small preview-note">Photos look exactly like this on the frame. Text screens use
+        different fonts here, so spacing shifts a little.</p>
     </div>
 
     <details class="card log-card">
@@ -345,13 +359,6 @@
     </details>
   </aside>
 </div>
-
-<nav class="bottombar" aria-label="Sections">
-  <button class="bottom-tab is-active" data-panel="device"><svg class="ico"><use href="#i-device"/></svg>Device</button>
-  <button class="bottom-tab" data-panel="faces"><svg class="ico"><use href="#i-faces"/></svg>Screens</button>
-  <button class="bottom-tab" data-panel="photos"><svg class="ico"><use href="#i-photos"/></svg>Photos</button>
-  <button class="bottom-tab" data-panel="content"><svg class="ico"><use href="#i-content"/></svg>Content</button>
-</nav>
 
 <script type="module" src="js/app.js"></script>
 </body>

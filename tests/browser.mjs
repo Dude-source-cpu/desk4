@@ -152,6 +152,26 @@ const configJson = await evaluate(`(async () => {
 })()`);
 check('config payload builds', !!configJson && configJson.includes('"rotation"'), configJson);
 
+// ── desktop layout ──────────────────────────────────────────────────────────
+
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+await sleep(400);
+
+const desktop = await evaluate(`(() => {
+  const shell = getComputedStyle(document.querySelector('.shell'));
+  return {
+    columns: shell.gridTemplateColumns.split(' ').length,
+    overflows: document.documentElement.scrollWidth > window.innerWidth + 1,
+    previewVisible: document.querySelector('.preview-card').getBoundingClientRect().width > 0,
+  };
+})()`);
+check('desktop lays out rail, content and preview', desktop.columns === 3, JSON.stringify(desktop));
+check('desktop keeps the preview on screen', desktop.previewVisible === true);
+check('desktop does not scroll sideways', desktop.overflows === false);
+
+await send('Emulation.clearDeviceMetricsOverride');
+await sleep(200);
+
 // ── setup wizard ────────────────────────────────────────────────────────────
 
 const wizardOpen = await evaluate('!document.getElementById("wizard").hidden');
@@ -223,24 +243,23 @@ await send('Emulation.setDeviceMetricsOverride', {
 await sleep(400);
 
 const mobile = await evaluate(`(() => {
-  const bar = document.querySelector('.bottombar');
-  const tabs = document.querySelector('.tabs');
+  const rail = document.querySelector('.rail');
   return {
-    bottomBar: getComputedStyle(bar).display,
-    topTabs: getComputedStyle(tabs).display,
+    railVisible: getComputedStyle(rail).display !== 'none',
     overflows: document.documentElement.scrollWidth > window.innerWidth + 1,
     scrollWidth: document.documentElement.scrollWidth,
+    inner: window.innerWidth,
   };
 })()`);
-check('mobile shows the bottom nav', mobile.bottomBar === 'grid', mobile.bottomBar);
-check('mobile hides the desktop tabs', mobile.topTabs === 'none', mobile.topTabs);
-check('mobile layout does not scroll sideways', mobile.overflows === false, `scrollWidth ${mobile.scrollWidth}`);
+check('navigation is reachable on a phone', mobile.railVisible === true);
+check('narrow layout does not scroll sideways', mobile.overflows === false,
+      `scrollWidth ${mobile.scrollWidth} vs ${mobile.inner}`);
 
 const mobileNav = await evaluate(`(() => {
-  document.querySelectorAll('.bottom-tab')[1].click();
+  document.querySelectorAll('.rail .tab')[1].click();
   return document.querySelector('.panel[data-panel="faces"]').classList.contains('is-active');
 })()`);
-check('mobile bottom nav switches panels', mobileNav === true);
+check('navigation switches panels on a phone', mobileNav === true);
 
 await send('Emulation.clearDeviceMetricsOverride');
 

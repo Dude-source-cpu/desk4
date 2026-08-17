@@ -828,7 +828,12 @@ function downloadConfig() {
 }
 
 function wireSetup() {
-  $('btnWizard').addEventListener('click', () => wizard.open(0));
+  // Two entry points: the rail button is always there, the hero card only
+  // matters before the first successful setup.
+  for (const id of ['btnWizard', 'btnWizardHero']) {
+    const button = $(id);
+    if (button) button.addEventListener('click', () => wizard.open(0));
+  }
   $('btnStarterConfig').addEventListener('click', () => {
     downloadConfig();
   });

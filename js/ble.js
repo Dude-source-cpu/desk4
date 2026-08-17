@@ -25,10 +25,11 @@ const STATUS_TEXT = {
 
 /**
  * Unacknowledged bytes allowed in flight before waiting for a credit. Half the
- * device's 16 KiB receive ring, so a burst that lands while the firmware is
- * busy repainting still has somewhere to go.
+ * device's receive ring, so a burst that lands while the firmware is busy
+ * repainting still has somewhere to go. The ring is small because the device
+ * has very little heap to spare while Bluetooth is up.
  */
-const CREDIT_WINDOW = 8 * 1024;
+const CREDIT_WINDOW = 4 * 1024;
 const COMMAND_TIMEOUT_MS = 12000;
 
 // ── CRC-32 (IEEE, zlib polynomial) ──────────────────────────────────────────
