@@ -40,7 +40,10 @@ const STATUS_TEXT = {
  * has very little heap to spare while Bluetooth is up.
  */
 const CREDIT_WINDOW = 4 * 1024;
-const COMMAND_TIMEOUT_MS = 12000;
+// Generous on purpose: most commands answer in milliseconds, but a few touch
+// the SD card, and a card busy with a directory walk should cost patience
+// rather than a failed sync.
+const COMMAND_TIMEOUT_MS = 25000;
 
 // ── CRC-32 (IEEE, zlib polynomial) ──────────────────────────────────────────
 
