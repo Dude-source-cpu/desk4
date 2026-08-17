@@ -22,6 +22,7 @@ const DEFAULTS = {
   batteryWarn: true,
   unit: 'celsius',
   onThisDay: true,
+  orientation: 'portrait',
   faces: FACES.map(f => ({ id: f.id, on: f.id !== 'countdown' })),
   place: null,
   quotes: null, // null means "use the bundled set"

@@ -152,6 +152,77 @@ const configJson = await evaluate(`(async () => {
 })()`);
 check('config payload builds', !!configJson && configJson.includes('"rotation"'), configJson);
 
+// ── setup wizard ────────────────────────────────────────────────────────────
+
+const wizardOpen = await evaluate('!document.getElementById("wizard").hidden');
+check('wizard opens on a first visit', wizardOpen === true);
+
+const wizardTitle = await evaluate('document.getElementById("wizTitle").textContent');
+check('wizard shows its first step', !!wizardTitle, `title is "${wizardTitle}"`);
+
+const wizardAdvanced = await evaluate(`(() => {
+  document.getElementById('wizNext').click();
+  return document.getElementById('wizStep').textContent;
+})()`);
+check('wizard advances', /Step 2 of/.test(wizardAdvanced || ''), wizardAdvanced);
+
+const wizardClosed = await evaluate(`(() => {
+  document.getElementById('wizClose').click();
+  return document.getElementById('wizard').hidden;
+})()`);
+check('wizard closes', wizardClosed === true);
+
+// ── orientation ─────────────────────────────────────────────────────────────
+
+const landscape = await evaluate(`(async () => {
+  document.querySelector('.seg-btn[data-orientation="landscape"]').click();
+  await new Promise(r => setTimeout(r, 600));
+  const canvas = document.getElementById('preview');
+  return { w: canvas.width, h: canvas.height,
+           framed: document.getElementById('deviceFrame').classList.contains('is-landscape') };
+})()`);
+check('landscape resizes the preview to 800x480', landscape && landscape.w === 800 && landscape.h === 480,
+      JSON.stringify(landscape));
+check('landscape restyles the device mock', landscape && landscape.framed === true);
+
+const portrait = await evaluate(`(async () => {
+  document.querySelector('.seg-btn[data-orientation="portrait"]').click();
+  await new Promise(r => setTimeout(r, 600));
+  const canvas = document.getElementById('preview');
+  return { w: canvas.width, h: canvas.height };
+})()`);
+check('portrait returns to 480x800', portrait && portrait.w === 480 && portrait.h === 800,
+      JSON.stringify(portrait));
+
+// ── mobile layout ───────────────────────────────────────────────────────────
+
+await send('Emulation.setDeviceMetricsOverride', {
+  width: 390, height: 844, deviceScaleFactor: 2, mobile: true,
+});
+await sleep(400);
+
+const mobile = await evaluate(`(() => {
+  const bar = document.querySelector('.bottombar');
+  const tabs = document.querySelector('.tabs');
+  return {
+    bottomBar: getComputedStyle(bar).display,
+    topTabs: getComputedStyle(tabs).display,
+    overflows: document.documentElement.scrollWidth > window.innerWidth + 1,
+    scrollWidth: document.documentElement.scrollWidth,
+  };
+})()`);
+check('mobile shows the bottom nav', mobile.bottomBar === 'grid', mobile.bottomBar);
+check('mobile hides the desktop tabs', mobile.topTabs === 'none', mobile.topTabs);
+check('mobile layout does not scroll sideways', mobile.overflows === false, `scrollWidth ${mobile.scrollWidth}`);
+
+const mobileNav = await evaluate(`(() => {
+  document.querySelectorAll('.bottom-tab')[1].click();
+  return document.querySelector('.panel[data-panel="faces"]').classList.contains('is-active');
+})()`);
+check('mobile bottom nav switches panels', mobileNav === true);
+
+await send('Emulation.clearDeviceMetricsOverride');
+
 for (const problem of problems) console.error(`      ${problem}`);
 check('no console errors', problems.length === 0, `${problems.length} reported`);
 

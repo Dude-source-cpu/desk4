@@ -135,20 +135,52 @@ export class DeviceLink extends EventTarget {
     return true;
   }
 
+  /**
+   * Each stage is reported separately. A generic "connection failed" is useless
+   * here, because the three realistic causes need three different fixes: the
+   * device slept before pairing finished, the firmware is not the companion
+   * build, or the radio dropped mid-handshake.
+   */
   async connect() {
     if (!this.device) throw new Error('No device selected.');
     if (this.connected) return;
 
-    this._emit('state', { state: 'busy', label: 'Connecting…' });
-    this.server = await this.device.gatt.connect();
-    const service = await this.server.getPrimaryService(SERVICE_UUID);
-    this.ctrl = await service.getCharacteristic(CTRL_UUID);
-    this.data = await service.getCharacteristic(DATA_UUID);
+    const stage = async (label, what, hint) => {
+      this._emit('state', { state: 'busy', label });
+      try {
+        return await what();
+      } catch (err) {
+        const detail = err && err.message ? err.message : String(err);
+        const failure = new Error(hint ? `${hint} (${detail})` : detail);
+        failure.stage = label;
+        throw failure;
+      }
+    };
 
-    await this.ctrl.startNotifications();
+    this.server = await stage(
+      'Connecting…',
+      () => this.device.gatt.connect(),
+      'The device stopped responding. Its Bluetooth window is short — hold the power button until the screen says Bluetooth is on, then try again',
+    );
+
+    const service = await stage(
+      'Finding service…',
+      () => this.server.getPrimaryService(SERVICE_UUID),
+      'Connected, but this device is not running the companion firmware',
+    );
+
+    this.ctrl = await stage('Opening channel…', () => service.getCharacteristic(CTRL_UUID));
+    this.data = await stage('Opening channel…', () => service.getCharacteristic(DATA_UUID));
+
+    await stage('Subscribing…', () => this.ctrl.startNotifications());
     this.ctrl.addEventListener('characteristicvaluechanged', e => this._onNotify(e.target.value));
 
-    this.hello = await this.sayHello();
+    this.hello = await stage(
+      'Saying hello…',
+      () => this.sayHello(),
+      'The device accepted the connection but never answered. It may have gone to sleep mid-handshake',
+    );
+
     this._emit('state', { state: 'on', label: this.device.name || 'PhotoX4' });
     this._emit('hello', this.hello);
     this._log(`connected to ${this.device.name || 'PhotoX4'}`);

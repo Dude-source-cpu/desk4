@@ -3,20 +3,35 @@
 // firmware's layout with web fonts, so treat them as a composition check rather
 // than a pixel-accurate simulation.
 
-import { PANEL_W, PANEL_H, paintLevels } from './render.js';
+import { panelSize, paintLevels } from './render.js';
 
 const INK = '#111';
 const PAPER = '#fff';
 const MARGIN = 26;
-const L = MARGIN;
-const R = PANEL_W - MARGIN;
-const W = R - L;
-const CX = PANEL_W / 2;
 
 const SANS = '"Helvetica Neue", Arial, sans-serif';
 const SERIF = 'Georgia, "Times New Roman", serif';
 
-function begin(canvas) {
+// Geometry for the frame currently being drawn. Set by begin(); every helper
+// reads it rather than taking six arguments.
+let PANEL_W = 480;
+let PANEL_H = 800;
+let L = MARGIN;
+let R = PANEL_W - MARGIN;
+let W = R - L;
+let B = PANEL_H - MARGIN;
+let CX = PANEL_W / 2;
+
+function begin(canvas, orientation = 'portrait') {
+  const size = panelSize(orientation);
+  PANEL_W = size.w;
+  PANEL_H = size.h;
+  L = MARGIN;
+  R = PANEL_W - MARGIN;
+  W = R - L;
+  B = PANEL_H - MARGIN;
+  CX = PANEL_W / 2;
+
   canvas.width = PANEL_W;
   canvas.height = PANEL_H;
   const ctx = canvas.getContext('2d');
@@ -26,6 +41,12 @@ function begin(canvas) {
   ctx.strokeStyle = INK;
   ctx.textBaseline = 'top';
   return ctx;
+}
+
+/** Mirrors linesThatFit() in the firmware: lines of `lh` that fit above `B`. */
+function linesThatFit(y, lineHeight, cap) {
+  const fits = Math.floor((B - y) / lineHeight);
+  return Math.max(1, Math.min(cap, fits));
 }
 
 function label(ctx, text, y) {
@@ -195,16 +216,43 @@ export function weatherIcon(ctx, icon, cx, cy, size) {
 
 // ── faces ───────────────────────────────────────────────────────────────────
 
-export function drawPhoto(canvas, levels) {
-  paintLevels(canvas, levels);
+export function drawPhoto(canvas, levels, orientation = 'portrait') {
+  const { w, h } = panelSize(orientation);
+  paintLevels(canvas, levels, w, h);
 }
 
-export function drawWeather(canvas, forecast, showSunTimes) {
-  const ctx = begin(canvas);
-  if (!forecast) {
-    return drawMessage(canvas, 'No forecast yet', 'Set a location on the Content tab.', null);
-  }
+/** Six three-hourly samples across `width`, mirroring drawHourStrip() on device. */
+function hourStrip(ctx, forecast, left, width, y) {
+  const column = width / forecast.hours.length;
+  forecast.hours.forEach((hour, i) => {
+    const cx = left + column * i + column / 2;
+    ctx.textAlign = 'center';
+    ctx.font = `11px ${SANS}`;
+    ctx.fillText(String(hour.h).padStart(2, '0'), cx, y);
+    weatherIcon(ctx, hour.i, cx, y + 40, 40);
+    ctx.font = `700 15px ${SANS}`;
+    ctx.fillText(`${hour.t}°`, cx, y + 64);
+    if (hour.p >= 30) {
+      ctx.font = `11px ${SANS}`;
+      ctx.fillText(`${hour.p}%`, cx, y + 86);
+    }
+  });
+}
 
+function dayStrip(ctx, forecast, left, width, y) {
+  const column = width / forecast.days.length;
+  forecast.days.forEach((day, i) => {
+    const cx = left + column * i + column / 2;
+    ctx.textAlign = 'center';
+    ctx.font = `700 15px ${SANS}`;
+    ctx.fillText(i === 0 ? 'Today' : day.d, cx, y);
+    weatherIcon(ctx, day.i, cx, y + 46, 46);
+    ctx.font = `11px ${SANS}`;
+    ctx.fillText(`${day.hi}° ${day.lo}°`, cx, y + 74);
+  });
+}
+
+function weatherHeader(ctx, forecast) {
   let y = MARGIN + 8;
   label(ctx, 'TODAY', y);
   ctx.font = `15px ${SANS}`;
@@ -212,6 +260,63 @@ export function drawWeather(canvas, forecast, showSunTimes) {
   ctx.fillText(forecast.place, R, y - 3);
   y += 26;
   rule(ctx, y, true);
+  return y;
+}
+
+/** The two-column arrangement the firmware switches to below 480px of height. */
+function weatherLandscape(ctx, forecast, showSunTimes) {
+  const ruleY = weatherHeader(ctx, forecast);
+  const gap = 28;
+  const leftWidth = ((W - gap) * 44) / 100;
+  const leftCx = L + leftWidth / 2;
+  const rightLeft = L + leftWidth + gap;
+  const rightWidth = R - rightLeft;
+
+  ctx.fillRect(L + leftWidth + gap / 2, ruleY + 18, 1, B - ruleY - 56);
+
+  let y = ruleY + 16;
+  weatherIcon(ctx, forecast.icon, leftCx, y + 62, 112);
+  y += 128;
+  ctx.textAlign = 'center';
+  ctx.font = `700 54px ${SANS}`;
+  ctx.fillText(`${forecast.now}°`, leftCx, y);
+  y += 70;
+  ctx.font = `17px ${SANS}`;
+  ctx.fillText(forecast.label, leftCx, y);
+  y += 30;
+  ctx.font = `700 17px ${SANS}`;
+  ctx.fillText(`H ${forecast.hi}°    L ${forecast.lo}°`, leftCx, y);
+
+  let rightY = ruleY + 16;
+  if (forecast.hours && forecast.hours.length) {
+    hourStrip(ctx, forecast, rightLeft, rightWidth, rightY);
+    rightY += 108;
+    ctx.fillRect(rightLeft, rightY, rightWidth, 1);
+    rightY += 14;
+  }
+  if (forecast.days && forecast.days.length) dayStrip(ctx, forecast, rightLeft, rightWidth, rightY);
+
+  let footerY = B - 20;
+  if (showSunTimes && forecast.sunrise) {
+    centered(ctx, `Sunrise ${forecast.sunrise}     Sunset ${forecast.sunset}`, footerY, `11px ${SANS}`);
+    footerY -= 18;
+  }
+  centered(
+    ctx,
+    `Feels ${forecast.feels}°     Wind ${forecast.wind} km/h     Rain ${forecast.precip}%`,
+    footerY,
+    `11px ${SANS}`,
+  );
+}
+
+export function drawWeather(canvas, forecast, showSunTimes, orientation = 'portrait') {
+  const ctx = begin(canvas, orientation);
+  if (!forecast) {
+    return drawMessage(canvas, 'No forecast yet', 'Set a location on the Content tab.', null, orientation);
+  }
+  if (PANEL_W > PANEL_H) return weatherLandscape(ctx, forecast, showSunTimes);
+
+  let y = weatherHeader(ctx, forecast);
 
   weatherIcon(ctx, forecast.icon, CX, y + 108, 150);
   y += 190;
@@ -226,39 +331,17 @@ export function drawWeather(canvas, forecast, showSunTimes) {
   if (forecast.hours && forecast.hours.length) {
     rule(ctx, y);
     y += 14;
-    const column = W / forecast.hours.length;
-    forecast.hours.forEach((hour, i) => {
-      const cx = L + column * i + column / 2;
-      ctx.textAlign = 'center';
-      ctx.font = `11px ${SANS}`;
-      ctx.fillText(String(hour.h).padStart(2, '0'), cx, y);
-      weatherIcon(ctx, hour.i, cx, y + 40, 40);
-      ctx.font = `700 15px ${SANS}`;
-      ctx.fillText(`${hour.t}°`, cx, y + 64);
-      if (hour.p >= 30) {
-        ctx.font = `11px ${SANS}`;
-        ctx.fillText(`${hour.p}%`, cx, y + 86);
-      }
-    });
+    hourStrip(ctx, forecast, L, W, y);
     y += 110;
   }
 
   if (forecast.days && forecast.days.length) {
     rule(ctx, y);
     y += 14;
-    const column = W / forecast.days.length;
-    forecast.days.forEach((day, i) => {
-      const cx = L + column * i + column / 2;
-      ctx.textAlign = 'center';
-      ctx.font = `700 15px ${SANS}`;
-      ctx.fillText(i === 0 ? 'Today' : day.d, cx, y);
-      weatherIcon(ctx, day.i, cx, y + 46, 46);
-      ctx.font = `11px ${SANS}`;
-      ctx.fillText(`${day.hi}° ${day.lo}°`, cx, y + 74);
-    });
+    dayStrip(ctx, forecast, L, W, y);
   }
 
-  let footerY = PANEL_H - MARGIN - 24;
+  let footerY = B - 24;
   if (showSunTimes && forecast.sunrise) {
     centered(ctx, `Sunrise ${forecast.sunrise}     Sunset ${forecast.sunset}`, footerY, `11px ${SANS}`);
     footerY -= 20;
@@ -271,9 +354,9 @@ export function drawWeather(canvas, forecast, showSunTimes) {
   );
 }
 
-export function drawQuote(canvas, quote) {
-  const ctx = begin(canvas);
-  if (!quote) return drawMessage(canvas, 'No quotes', 'Add some on the Content tab.', null);
+export function drawQuote(canvas, quote, orientation = 'portrait') {
+  const ctx = begin(canvas, orientation);
+  if (!quote) return drawMessage(canvas, 'No quotes', 'Add some on the Content tab.', null, orientation);
 
   const textWidth = W - 24;
   let size = 26;
@@ -309,9 +392,11 @@ export function drawQuote(canvas, quote) {
   }
 }
 
-export function drawWord(canvas, word) {
-  const ctx = begin(canvas);
-  if (!word) return drawMessage(canvas, 'No words', 'The built-in list will be sent on the next sync.', null);
+export function drawWord(canvas, word, orientation = 'portrait') {
+  const ctx = begin(canvas, orientation);
+  if (!word) {
+    return drawMessage(canvas, 'No words', 'The built-in list will be sent on the next sync.', null, orientation);
+  }
 
   let y = MARGIN + 8;
   label(ctx, 'WORD OF THE DAY', y);
@@ -336,7 +421,7 @@ export function drawWord(canvas, word) {
   y += 22;
 
   ctx.font = `19px ${SANS}`;
-  for (const line of wrap(ctx, word.def, W, 6)) {
+  for (const line of wrap(ctx, word.def, W, linesThatFit(y, 27, 6))) {
     ctx.fillText(line, L, y);
     y += 27;
   }
@@ -353,10 +438,10 @@ export function drawWord(canvas, word) {
   }
 }
 
-export function drawCountdown(canvas, events) {
-  const ctx = begin(canvas);
+export function drawCountdown(canvas, events, orientation = 'portrait') {
+  const ctx = begin(canvas, orientation);
   if (!events || !events.length) {
-    return drawMessage(canvas, 'Nothing scheduled', 'Add a date on the Content tab.', null);
+    return drawMessage(canvas, 'Nothing scheduled', 'Add a date on the Content tab.', null, orientation);
   }
 
   let y = MARGIN + 8;
@@ -398,10 +483,11 @@ export function drawCountdown(canvas, events) {
   }
 }
 
-export function drawHistory(canvas, entry) {
-  const ctx = begin(canvas);
+export function drawHistory(canvas, entry, orientation = 'portrait') {
+  const ctx = begin(canvas, orientation);
   if (!entry) {
-    return drawMessage(canvas, 'On this day', 'Enable the Wikipedia lookup on the Content tab, then sync.', null);
+    return drawMessage(canvas, 'On this day', 'Enable the Wikipedia lookup on the Content tab, then sync.', null,
+                       orientation);
   }
 
   let y = MARGIN + 8;
@@ -416,22 +502,19 @@ export function drawHistory(canvas, entry) {
   y += 100;
 
   ctx.font = `26px ${SERIF}`;
-  for (const line of wrap(ctx, entry.t, W, 10)) {
+  for (const line of wrap(ctx, entry.t, W, linesThatFit(y, 40, 10))) {
     ctx.fillText(line, L, y);
     y += 40;
   }
 }
 
-export function drawMessage(canvas, title, line1, line2) {
-  const ctx = canvas.getContext('2d');
-  // Only clear when nothing has been drawn yet, so the fallback can be layered
-  // over a face that bailed out halfway.
-  if (canvas.dataset.painted !== 'partial') {
-    ctx.fillStyle = PAPER;
-    ctx.fillRect(0, 0, PANEL_W, PANEL_H);
-    ctx.fillStyle = INK;
-  }
-  ctx.textBaseline = 'top';
+/**
+ * Empty state for a face with nothing to show. It sizes the canvas itself: it
+ * is often the first thing drawn after an orientation change, and a stale
+ * canvas would keep the old frame's shape.
+ */
+export function drawMessage(canvas, title, line1, line2, orientation = 'portrait') {
+  const ctx = begin(canvas, orientation);
 
   let y = PANEL_H / 2 - 90;
   centered(ctx, title, y, `700 26px ${SANS}`);

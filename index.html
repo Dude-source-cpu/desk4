@@ -2,35 +2,62 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PhotoX4 — desk companion</title>
-<meta name="description" content="Publish photos, weather, and quotes to an Xteink X4 over Bluetooth.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>desk4 — Xteink X4 companion</title>
+<meta name="description" content="Send photos, weather, and quotes to an Xteink X4 over Bluetooth.">
+<meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14140f" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23111'/><rect x='3.5' y='2.5' width='9' height='11' rx='1' fill='%23f7f6f3'/></svg>">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 
+<!-- ───────────────────────────── setup wizard ───────────────────────────── -->
+<div id="wizard" class="wizard" hidden>
+  <div class="wizard-sheet" role="dialog" aria-modal="true" aria-labelledby="wizTitle">
+    <div class="wizard-head">
+      <div class="wizard-progress"><i id="wizBar"></i></div>
+      <button id="wizClose" class="icon-btn" aria-label="Close setup">✕</button>
+    </div>
+    <div class="wizard-body">
+      <p id="wizStep" class="wizard-step"></p>
+      <h2 id="wizTitle" class="wizard-title"></h2>
+      <div id="wizContent" class="wizard-content"></div>
+    </div>
+    <div class="wizard-foot">
+      <button id="wizBack" class="btn">Back</button>
+      <span class="spacer"></span>
+      <button id="wizNext" class="btn btn-primary">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────────────────────── top bar ────────────────────────────────── -->
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"></span>
-    <span class="brand-text">PhotoX4<em>desk companion</em></span>
+    <span class="brand-text">desk4</span>
   </div>
   <div class="conn">
-    <span id="connDot" class="dot" data-state="off"></span>
-    <span id="connLabel" class="conn-label">Not connected</span>
+    <span id="connPill" class="pill-status" data-state="off">
+      <span class="dot"></span><span id="connLabel">Not connected</span>
+    </span>
     <button id="btnConnect" class="btn btn-primary">Connect</button>
     <button id="btnDisconnect" class="btn" hidden>Disconnect</button>
   </div>
 </header>
 
 <div id="unsupported" class="banner banner-warn" hidden>
-  This browser has no Web Bluetooth. Use Chrome, Edge, or Opera on desktop or Android —
-  Safari and Firefox cannot talk to the device. Everything else on this page still works,
-  so you can prepare photos and content and sync later.
+  <strong>This browser can't reach the device.</strong> Web Bluetooth needs Chrome, Edge, or Opera
+  on desktop or Android. You can still prepare photos and content here and sync from one of those later.
+</div>
+
+<div id="hint" class="banner banner-hint" hidden>
+  <span id="hintText"></span>
+  <button id="hintAction" class="link"></button>
 </div>
 
 <div class="layout">
-
   <div class="col-main">
     <nav class="tabs" role="tablist">
       <button class="tab is-active" role="tab" data-panel="device">Device</button>
@@ -39,36 +66,29 @@
       <button class="tab" role="tab" data-panel="content">Content</button>
     </nav>
 
-    <!-- ───────────────────────────── Device ───────────────────────────── -->
+    <!-- ─────────────────────────── Device ─────────────────────────────── -->
     <section class="panel is-active" data-panel="device">
-      <div class="card">
-        <h2>First-time setup</h2>
-        <p class="muted">
-          The X4 only becomes a photo frame — and only turns its Bluetooth on — once
-          <code>/photox4/config.json</code> exists on the SD card, so that one file has to arrive
-          over USB. Everything after it comes over Bluetooth.
-        </p>
-        <ol class="steps">
-          <li>Flash the <code>companion</code> firmware build to the device.</li>
-          <li>Download <code>config.json</code> below and copy it into a <code>photox4</code> folder
-            at the root of the SD card.</li>
-          <li>Put the card back. The device shows its first face at the next wake.</li>
-          <li>Hold the power button until it says Bluetooth is on, then press Connect above.</li>
-        </ol>
-        <button id="btnStarterConfig" class="btn">Download config.json</button>
+      <div class="card card-accent">
+        <h2>Getting started</h2>
+        <p class="muted">Four short steps: flash the firmware, drop one file on the SD card, turn on
+          the device's Bluetooth, and connect.</p>
+        <div class="row">
+          <button id="btnWizard" class="btn btn-primary">Open the setup guide</button>
+          <button id="btnStarterConfig" class="btn">Download config.json</button>
+        </div>
       </div>
 
       <div class="card">
         <h2>Sync</h2>
         <p class="muted">
-          Long-press the power button on the X4 until it says Bluetooth is on, then press Sync.
-          If auto-sync is enabled the device also opens a short Bluetooth window every time it
-          changes face, and this page will connect to it on its own while the tab stays open.
+          Hold the power button on the X4 for about two seconds, until the screen says Bluetooth is on.
+          Then connect and sync. <strong>A short hold matters</strong> — the automatic window after each
+          face change is only seconds long, which is rarely enough to finish pairing.
         </p>
         <div class="row">
           <button id="btnSync" class="btn btn-primary" disabled>Sync now</button>
           <button id="btnNextFace" class="btn" disabled>Next face</button>
-          <button id="btnBleOff" class="btn" disabled>Turn device Bluetooth off</button>
+          <button id="btnBleOff" class="btn" disabled>Turn Bluetooth off</button>
         </div>
         <label class="check">
           <input type="checkbox" id="optAutoReconnect" checked>
@@ -82,7 +102,7 @@
 
       <div class="card">
         <h2>Status</h2>
-        <dl id="statusGrid" class="status-grid">
+        <dl class="status-grid">
           <div><dt>Battery</dt><dd id="stBattery">—</dd></div>
           <div><dt>Free space</dt><dd id="stFree">—</dd></div>
           <div><dt>Photos on device</dt><dd id="stPhotos">—</dd></div>
@@ -107,9 +127,9 @@
             </select>
           </label>
           <label class="field">
-            <span>Bluetooth window on each change</span>
+            <span>Bluetooth window per change</span>
             <select id="optSyncWindow">
-              <option value="0">Off — longer battery life</option>
+              <option value="0">Off — best battery</option>
               <option value="10">10 seconds</option>
               <option value="20" selected>20 seconds</option>
               <option value="45">45 seconds</option>
@@ -121,23 +141,35 @@
           <span>Shuffle the order instead of cycling in sequence</span>
         </label>
         <p class="muted small">
-          A short click of the power button skips to the next face at any time. Every wake costs
-          a little battery, so a shorter interval and a longer Bluetooth window both shorten the
-          time between charges.
+          A short click of the power button skips to the next face at any time. On USB power the frame
+          stays awake and reachable, so none of this costs anything while it is charging.
         </p>
+      </div>
+
+      <div class="card">
+        <h2>Orientation</h2>
+        <div class="seg" role="radiogroup" aria-label="Orientation">
+          <button class="seg-btn is-active" data-orientation="portrait" role="radio" aria-checked="true">
+            <span class="seg-icon seg-portrait" aria-hidden="true"></span> Portrait
+          </button>
+          <button class="seg-btn" data-orientation="landscape" role="radio" aria-checked="false">
+            <span class="seg-icon seg-landscape" aria-hidden="true"></span> Landscape
+          </button>
+        </div>
+        <p class="muted small">Landscape stands the frame on its long edge, 800 × 480. Photos are
+          re-cropped for the shape you pick, so switching means re-sending them.</p>
       </div>
     </section>
 
-    <!-- ───────────────────────────── Faces ────────────────────────────── -->
+    <!-- ──────────────────────────── Faces ─────────────────────────────── -->
     <section class="panel" data-panel="faces">
       <div class="card">
-        <h2>Faces in rotation</h2>
-        <p class="muted">Turn faces on or off, and drag to reorder. The device cycles through
-          the enabled faces in this order.</p>
+        <h2>In rotation</h2>
+        <p class="muted">Turn faces on or off, and drag the handle to reorder.</p>
         <ul id="faceList" class="face-list"></ul>
       </div>
       <div class="card">
-        <h2>Face options</h2>
+        <h2>Options</h2>
         <label class="check">
           <input type="checkbox" id="optSunTimes" checked>
           <span>Show sunrise and sunset on the weather face</span>
@@ -156,51 +188,55 @@
       </div>
     </section>
 
-    <!-- ───────────────────────────── Photos ───────────────────────────── -->
+    <!-- ──────────────────────────── Photos ────────────────────────────── -->
     <section class="panel" data-panel="photos">
       <div class="card">
         <h2>Photos</h2>
         <div id="dropzone" class="dropzone">
           <input type="file" id="fileInput" accept="image/*" multiple hidden>
-          <p><strong>Drop photos here</strong> or <button id="btnPick" class="link">choose files</button></p>
-          <p class="muted small">Each photo is cropped to the 480 × 800 panel, converted to
-            grayscale, and sent as a small JPEG. The device dithers it to four gray levels.</p>
+          <p class="dropzone-title">Drop photos here</p>
+          <p><button id="btnPick" class="btn">Choose photos</button></p>
+          <p class="muted small">Cropped to the panel, converted to grayscale, and dithered to the four
+            greys the display can hold. The preview is exact.</p>
         </div>
-        <div class="field-grid">
-          <label class="field">
-            <span>Framing</span>
-            <select id="optFit">
-              <option value="cover" selected>Fill the screen (crop)</option>
-              <option value="contain">Fit the whole photo (white edges)</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Brightness <output id="outBright">0</output></span>
-            <input type="range" id="optBright" min="-60" max="60" value="0">
-          </label>
-          <label class="field">
-            <span>Contrast <output id="outContrast">1.15</output></span>
-            <input type="range" id="optContrast" min="0.6" max="2" step="0.05" value="1.15">
-          </label>
-          <label class="field">
-            <span>JPEG quality <output id="outQuality">0.72</output></span>
-            <input type="range" id="optQuality" min="0.4" max="0.92" step="0.02" value="0.72">
-          </label>
-        </div>
-        <div class="row">
-          <button id="btnReprocess" class="btn">Re-apply to all photos</button>
-          <button id="btnClearPhotos" class="btn btn-danger">Remove all</button>
-        </div>
+        <details class="tune">
+          <summary>Adjust how photos are converted</summary>
+          <div class="field-grid">
+            <label class="field">
+              <span>Framing</span>
+              <select id="optFit">
+                <option value="cover" selected>Fill the screen (crop)</option>
+                <option value="contain">Fit the whole photo (white edges)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Brightness <output id="outBright">0</output></span>
+              <input type="range" id="optBright" min="-60" max="60" value="0">
+            </label>
+            <label class="field">
+              <span>Contrast <output id="outContrast">1.15</output></span>
+              <input type="range" id="optContrast" min="0.6" max="2" step="0.05" value="1.15">
+            </label>
+            <label class="field">
+              <span>JPEG quality <output id="outQuality">0.72</output></span>
+              <input type="range" id="optQuality" min="0.4" max="0.92" step="0.02" value="0.72">
+            </label>
+          </div>
+          <div class="row">
+            <button id="btnReprocess" class="btn">Re-apply to all photos</button>
+            <button id="btnClearPhotos" class="btn btn-danger">Remove all</button>
+          </div>
+        </details>
       </div>
       <div class="card">
         <h2>Queue <span id="photoCount" class="pill">0</span></h2>
-        <p class="muted small">Photos stay in this browser until you sync. Removing one here
-          also deletes it from the SD card on the next sync.</p>
+        <p class="muted small">Photos stay in this browser until you sync. Removing one here also
+          deletes it from the card on the next sync.</p>
         <ul id="photoGrid" class="photo-grid"></ul>
       </div>
     </section>
 
-    <!-- ──────────────────────────── Content ───────────────────────────── -->
+    <!-- ─────────────────────────── Content ────────────────────────────── -->
     <section class="panel" data-panel="content">
       <div class="card">
         <h2>Weather</h2>
@@ -216,10 +252,9 @@
 
       <div class="card">
         <h2>Quotes</h2>
-        <p class="muted small">The device shows a different one each time the quote face comes
-          up. <span id="quoteCount"></span></p>
+        <p class="muted small">A different one each time the quote face comes up. <span id="quoteCount"></span></p>
         <textarea id="quoteInput" class="input textarea" rows="3"
-          placeholder="Your own quote &#10;— Attribution"></textarea>
+          placeholder="Your own quote&#10;— Attribution"></textarea>
         <div class="row">
           <button id="btnAddQuote" class="btn">Add quote</button>
           <button id="btnResetQuotes" class="btn">Reset to the built-in set</button>
@@ -229,7 +264,7 @@
 
       <div class="card">
         <h2>Countdowns</h2>
-        <p class="muted small">Days remaining, no times — shown on the countdown face.</p>
+        <p class="muted small">Days remaining, no times.</p>
         <div class="row">
           <input type="text" id="eventTitle" class="input" placeholder="What">
           <input type="date" id="eventDate" class="input">
@@ -251,27 +286,36 @@
   <!-- ──────────────────────────── Preview ─────────────────────────────── -->
   <aside class="col-side">
     <div class="card preview-card">
-      <h2>Preview</h2>
-      <div class="device">
+      <div class="preview-head">
+        <h2>Preview</h2>
+        <div class="preview-nav">
+          <button id="btnPrevPreview" class="icon-btn" aria-label="Previous face">‹</button>
+          <span id="previewLabel" class="preview-label">—</span>
+          <button id="btnNextPreview" class="icon-btn" aria-label="Next face">›</button>
+        </div>
+      </div>
+      <div class="device" id="deviceFrame">
         <div class="device-screen">
           <canvas id="preview" width="480" height="800"></canvas>
         </div>
       </div>
-      <div class="row preview-nav">
-        <button id="btnPrevPreview" class="btn btn-icon" aria-label="Previous face">‹</button>
-        <span id="previewLabel" class="preview-label">—</span>
-        <button id="btnNextPreview" class="btn btn-icon" aria-label="Next face">›</button>
-      </div>
-      <p class="muted small">Photos preview exactly as the device renders them. The text faces
-        are drawn here with web fonts, so the device's version will differ a little in spacing.</p>
+      <p class="muted small">Photos preview exactly as the panel renders them. Text faces are drawn
+        here with web fonts, so spacing will differ a little.</p>
     </div>
 
-    <div class="card log-card">
-      <h2>Log</h2>
+    <details class="card log-card">
+      <summary><h2>Activity log</h2></summary>
       <pre id="log" class="log"></pre>
-    </div>
+    </details>
   </aside>
 </div>
+
+<nav class="bottombar" aria-label="Sections">
+  <button class="bottom-tab is-active" data-panel="device"><span class="bt-ico">◉</span>Device</button>
+  <button class="bottom-tab" data-panel="faces"><span class="bt-ico">▤</span>Faces</button>
+  <button class="bottom-tab" data-panel="photos"><span class="bt-ico">▣</span>Photos</button>
+  <button class="bottom-tab" data-panel="content"><span class="bt-ico">✎</span>Content</button>
+</nav>
 
 <script type="module" src="js/app.js"></script>
 </body>

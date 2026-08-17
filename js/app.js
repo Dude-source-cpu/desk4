@@ -1,9 +1,10 @@
 import { DeviceLink, isSupported, crc32 } from './ble.js';
-import { processPhoto, paintLevels, dither4, PANEL_W, PANEL_H } from './render.js';
+import { processPhoto, paintLevels, dither4, panelSize } from './render.js';
 import * as store from './store.js';
 import * as content from './content.js';
 import * as weather from './weather.js';
 import * as preview from './preview.js';
+import { Wizard } from './wizard.js';
 
 const $ = id => document.getElementById(id);
 
@@ -14,6 +15,7 @@ let forecast = null;
 let history = null;
 let previewIndex = 0;
 let busy = false;
+let wizard = null;
 
 // ── logging ─────────────────────────────────────────────────────────────────
 
@@ -142,19 +144,25 @@ function faceWarning(id) {
 // ── photos tab ──────────────────────────────────────────────────────────────
 
 function thumbFromLevels(levels) {
+  const { w, h } = panelSize(settings.orientation);
   const full = document.createElement('canvas');
-  paintLevels(full, levels);
+  paintLevels(full, levels, w, h);
   const thumb = document.createElement('canvas');
-  thumb.width = 120;
-  thumb.height = 200;
+  const scale = 160 / Math.max(w, h);
+  thumb.width = Math.round(w * scale);
+  thumb.height = Math.round(h * scale);
   const ctx = thumb.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(full, 0, 0, 120, 200);
+  ctx.drawImage(full, 0, 0, thumb.width, thumb.height);
   return thumb.toDataURL('image/png');
 }
 
+function photoOpts() {
+  return { ...settings.photoOpts, orientation: settings.orientation };
+}
+
 async function ingest(file) {
-  const { jpeg, levels } = await processPhoto(file, settings.photoOpts);
+  const { jpeg, levels } = await processPhoto(file, photoOpts());
   return {
     id: crypto.randomUUID(),
     name: file.name,
@@ -195,7 +203,7 @@ async function reprocessAll() {
   for (const photo of photos) {
     if (!photo.original) continue;
     try {
-      const { jpeg, levels } = await processPhoto(photo.original, settings.photoOpts);
+      const { jpeg, levels } = await processPhoto(photo.original, photoOpts());
       await store.putPhoto({
         ...photo,
         jpeg: jpeg.buffer,
@@ -357,9 +365,12 @@ async function refreshHistory() {
 
 async function drawPreview() {
   const canvas = $('preview');
+  const orientation = settings.orientation || 'portrait';
+  $('deviceFrame').classList.toggle('is-landscape', orientation === 'landscape');
+
   const faces = enabledFaces();
   if (!faces.length) {
-    preview.drawMessage(canvas, 'No faces on', 'Turn at least one on in the Faces tab.', null);
+    preview.drawMessage(canvas, 'No faces on', 'Turn at least one on in the Faces tab.', null, orientation);
     $('previewLabel').textContent = '—';
     return;
   }
@@ -371,34 +382,35 @@ async function drawPreview() {
   switch (id) {
     case 'photo': {
       if (!photos.length) {
-        preview.drawMessage(canvas, 'No photos yet', 'Drop a few on the Photos tab.', null);
+        preview.drawMessage(canvas, 'No photos yet', 'Drop a few on the Photos tab.', null, orientation);
         break;
       }
+      const { w, h } = panelSize(orientation);
       const photo = photos[0];
       const bitmap = await createImageBitmap(new Blob([photo.jpeg], { type: 'image/jpeg' }));
       const scratch = document.createElement('canvas');
-      scratch.width = PANEL_W;
-      scratch.height = PANEL_H;
+      scratch.width = w;
+      scratch.height = h;
       const ctx = scratch.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(bitmap, 0, 0, PANEL_W, PANEL_H);
+      ctx.drawImage(bitmap, 0, 0, w, h);
       bitmap.close?.();
-      const pixels = ctx.getImageData(0, 0, PANEL_W, PANEL_H).data;
-      const gray = new Uint8ClampedArray(PANEL_W * PANEL_H);
+      const pixels = ctx.getImageData(0, 0, w, h).data;
+      const gray = new Uint8ClampedArray(w * h);
       for (let i = 0, g = 0; i < pixels.length; i += 4, g++) gray[g] = pixels[i];
-      preview.drawPhoto(canvas, dither4(gray));
+      preview.drawPhoto(canvas, dither4(gray, w, h), orientation);
       break;
     }
     case 'weather':
-      preview.drawWeather(canvas, forecast, settings.showSunTimes);
+      preview.drawWeather(canvas, forecast, settings.showSunTimes, orientation);
       break;
     case 'quote': {
       const pool = settings.quotes && settings.quotes.length ? settings.quotes : await content.builtInQuotes();
-      preview.drawQuote(canvas, pool[Math.floor(Date.now() / 60000) % pool.length]);
+      preview.drawQuote(canvas, pool[Math.floor(Date.now() / 60000) % pool.length], orientation);
       break;
     }
     case 'word': {
       const pool = await content.builtInWords();
-      preview.drawWord(canvas, pool[Math.floor(Date.now() / 60000) % pool.length]);
+      preview.drawWord(canvas, pool[Math.floor(Date.now() / 60000) % pool.length], orientation);
       break;
     }
     case 'countdown': {
@@ -410,11 +422,11 @@ async function drawPreview() {
         })
         .filter(e => e.days >= 0)
         .sort((a, b) => a.days - b.days);
-      preview.drawCountdown(canvas, items);
+      preview.drawCountdown(canvas, items, orientation);
       break;
     }
     case 'history':
-      preview.drawHistory(canvas, history ? history[0] : null);
+      preview.drawHistory(canvas, history ? history[0] : null, orientation);
       break;
   }
 }
@@ -527,15 +539,95 @@ async function sync() {
 
 // ── wiring ──────────────────────────────────────────────────────────────────
 
-function wireTabs() {
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t === tab));
-      document.querySelectorAll('.panel').forEach(panel => {
-        panel.classList.toggle('is-active', panel.dataset.panel === tab.dataset.panel);
-      });
-    });
+function goToPanel(name) {
+  document.querySelectorAll('.tab, .bottom-tab').forEach(tab => {
+    tab.classList.toggle('is-active', tab.dataset.panel === name);
   });
+  document.querySelectorAll('.panel').forEach(panel => {
+    panel.classList.toggle('is-active', panel.dataset.panel === name);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function wireTabs() {
+  document.querySelectorAll('.tab, .bottom-tab').forEach(tab => {
+    tab.addEventListener('click', () => goToPanel(tab.dataset.panel));
+  });
+}
+
+/** A one-line, actionable nudge under the header. */
+function showHint(text, actionLabel, action) {
+  $('hintText').textContent = text;
+  const button = $('hintAction');
+  if (actionLabel) {
+    button.textContent = actionLabel;
+    button.hidden = false;
+    button.onclick = action;
+  } else {
+    button.hidden = true;
+  }
+  $('hint').hidden = false;
+}
+
+function hideHint() {
+  $('hint').hidden = true;
+}
+
+function wireOrientation() {
+  const buttons = [...document.querySelectorAll('.seg-btn')];
+  const paint = () => {
+    buttons.forEach(button => {
+      const on = button.dataset.orientation === settings.orientation;
+      button.classList.toggle('is-active', on);
+      button.setAttribute('aria-checked', String(on));
+    });
+  };
+  paint();
+
+  for (const button of buttons) {
+    button.addEventListener('click', async () => {
+      if (button.dataset.orientation === settings.orientation) return;
+      settings.orientation = button.dataset.orientation;
+      save();
+      paint();
+      await drawPreview();
+      if (photos.length) {
+        showHint(
+          `Photos are cropped for ${settings.orientation}. Re-apply them so they fit.`,
+          'Re-apply now',
+          async () => {
+            hideHint();
+            await reprocessAll();
+          },
+        );
+      }
+    });
+  }
+}
+
+/**
+ * Connect, and turn a failure into something the user can act on. The common
+ * one by far is the device's Bluetooth window closing mid-pairing, which reads
+ * as a generic GATT error unless it is explained.
+ */
+async function connect() {
+  hideHint();
+  try {
+    link.autoReconnect = $('optAutoReconnect').checked;
+    await link.requestAndConnect();
+    hideHint();
+  } catch (err) {
+    if (err.name === 'NotFoundError') return; // the picker was dismissed
+    log(`connect failed: ${err.message}`, 'error');
+    $('connPill').dataset.state = 'err';
+    $('connLabel').textContent = 'Connection failed';
+    showHint(
+      'Could not finish connecting. Hold the power button on the device for two seconds first — its automatic Bluetooth window is too short to pair by hand.',
+      'Open the setup guide',
+      () => wizard.open(3),
+    );
+    throw err;
+  }
 }
 
 function wireDevice() {
@@ -545,16 +637,12 @@ function wireDevice() {
     $('connLabel').textContent = event.detail.label;
     updateButtons();
   });
-  link.addEventListener('hello', event => showStatus(event.detail));
-
-  $('btnConnect').addEventListener('click', async () => {
-    try {
-      link.autoReconnect = $('optAutoReconnect').checked;
-      await link.requestAndConnect();
-    } catch (err) {
-      if (err.name !== 'NotFoundError') log(`connect failed: ${err.message}`, 'error');
-    }
+  link.addEventListener('hello', event => {
+    showStatus(event.detail);
+    hideHint();
   });
+
+  $('btnConnect').addEventListener('click', () => connect());
   $('btnDisconnect').addEventListener('click', () => link.disconnect());
   $('btnSync').addEventListener('click', sync);
   $('btnNextFace').addEventListener('click', () => link.nextFace().catch(err => log(err.message, 'error')));
@@ -709,16 +797,21 @@ function wireContent() {
   });
 }
 
+function downloadConfig() {
+  const payload = JSON.stringify(content.buildConfig(settings), null, 2);
+  const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'config.json';
+  anchor.click();
+  URL.revokeObjectURL(url);
+  log('config.json downloaded — copy it to /photox4/ on the SD card');
+}
+
 function wireSetup() {
+  $('btnWizard').addEventListener('click', () => wizard.open(0));
   $('btnStarterConfig').addEventListener('click', () => {
-    const payload = JSON.stringify(content.buildConfig(settings), null, 2);
-    const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'config.json';
-    anchor.click();
-    URL.revokeObjectURL(url);
-    log('config.json downloaded — copy it to /photox4/ on the SD card');
+    downloadConfig();
   });
 }
 
@@ -740,6 +833,15 @@ async function main() {
   wireContent();
   wireSetup();
   wirePreview();
+
+  wizard = new Wizard({
+    connect,
+    isConnected: () => link.connected,
+    downloadConfig,
+    sync,
+    goToPanel,
+  });
+  wireOrientation();
 
   bindControl('optInterval', 'interval', { parse: Number });
   bindControl('optSyncWindow', 'syncWindow', { parse: Number });
@@ -765,6 +867,8 @@ async function main() {
   // A device this page already has permission for can be reconnected without a
   // fresh prompt, which is what lets an open tab catch the device's own sync
   // window. Chrome only exposes that with persistent permissions enabled.
+  if (!Wizard.hasRun()) wizard.open(0);
+
   if (await link.restorePreviousDevice()) {
     log('found a previously paired device — waiting for it to advertise');
     if ($('optAutoReconnect').checked) link.startReconnecting();

@@ -41,15 +41,31 @@ any browser, so you can set things up anywhere and sync later.
 
 ## Using it
 
-1. Flash the companion firmware to the X4 and put `config.json` on its SD card
-   (the Device tab will hand you the file). Until that file exists the device
-   boots as a normal e-reader and has no Bluetooth to connect to.
-2. Hold the power button until the screen says Bluetooth is on.
-3. Open the page, press **Connect**, pick the device, press **Sync**.
+Open the page and follow the **setup guide** — it walks through flashing, the SD
+card file, and pairing. In short:
 
-Leave the tab open and it will reconnect on its own during the short Bluetooth
-window the device opens after every face change, so content keeps itself current
-through the day.
+1. Flash the companion firmware to the X4 and put `config.json` on its SD card
+   (the Device tab hands you the file). Until that file exists the device boots
+   as a normal e-reader and has no Bluetooth to connect to.
+2. **Hold the power button for about two seconds**, until the screen says
+   Bluetooth is on.
+3. Press **Connect**, pick the device, press **Sync**.
+
+That hold matters. The device also opens a Bluetooth window after every face
+change, but it is only seconds long — enough for an already-paired tab to
+reconnect on its own, rarely enough to finish pairing by hand. A failed
+connection is almost always that window closing. On USB power the frame stays
+awake and reachable, so setup is easiest with it plugged in.
+
+Once paired, leave the tab open and it reconnects on its own during those short
+windows, keeping the weather current through the day.
+
+## Portrait or landscape
+
+The frame runs either way up: 480 × 800 standing, or 800 × 480 on its long edge.
+Pick it on the Device tab. Photos are cropped to the shape you choose, so
+switching means re-applying and re-sending them — the app offers to do that.
+The weather face rearranges itself into two columns in landscape.
 
 ### The buttons on the device
 
@@ -78,7 +94,8 @@ device expects on its SD card. It is the contract `js/ble.js` implements.
 index.html          the whole app
 js/ble.js           Web Bluetooth transport and the wire protocol
 js/render.js        crop, tone-map, dither — the photo pipeline
-js/preview.js       face previews
+js/preview.js       face previews, both orientations
+js/wizard.js        the first-run setup guide
 js/weather.js       Open-Meteo client
 js/content.js       payload builders for the device
 js/store.js         settings and the photo queue

@@ -3,8 +3,21 @@
 // the same Atkinson kernel and thresholds mirrored below, so what this module
 // previews is what the panel shows (bar JPEG artefacts).
 
-export const PANEL_W = 480;
-export const PANEL_H = 800;
+// The panel is 800x480 physically; portrait is the rotated presentation.
+export const PANEL_LONG = 800;
+export const PANEL_SHORT = 480;
+
+// Portrait dimensions, kept as the default export names because most callers
+// only ever deal with the upright frame.
+export const PANEL_W = PANEL_SHORT;
+export const PANEL_H = PANEL_LONG;
+
+/** Panel size for an orientation: 'portrait' (480x800) or 'landscape' (800x480). */
+export function panelSize(orientation = 'portrait') {
+  return orientation === 'landscape'
+    ? { w: PANEL_LONG, h: PANEL_SHORT }
+    : { w: PANEL_SHORT, h: PANEL_LONG };
+}
 
 /** Panel luminance the firmware assigns to each 2-bit level (BitmapHelpers.h). */
 const LEVEL_VALUE = [15, 30, 80, 210];
@@ -24,23 +37,24 @@ export async function decode(file) {
  * Scale/crop `bitmap` into the panel and return an 8-bit grayscale plane.
  * `fit` is 'cover' (fill, cropping the overflow) or 'contain' (letterbox white).
  */
-export function toPanelGray(bitmap, { fit = 'cover', brightness = 0, contrast = 1.15 } = {}) {
-  const canvas = makeCanvas(PANEL_W, PANEL_H);
+export function toPanelGray(bitmap, { fit = 'cover', brightness = 0, contrast = 1.15, orientation = 'portrait' } = {}) {
+  const { w: PW, h: PH } = panelSize(orientation);
+  const canvas = makeCanvas(PW, PH);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, PANEL_W, PANEL_H);
+  ctx.fillRect(0, 0, PW, PH);
 
   const scale = fit === 'contain'
-    ? Math.min(PANEL_W / bitmap.width, PANEL_H / bitmap.height)
-    : Math.max(PANEL_W / bitmap.width, PANEL_H / bitmap.height);
+    ? Math.min(PW / bitmap.width, PH / bitmap.height)
+    : Math.max(PW / bitmap.width, PH / bitmap.height);
   const w = Math.round(bitmap.width * scale);
   const h = Math.round(bitmap.height * scale);
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bitmap, Math.round((PANEL_W - w) / 2), Math.round((PANEL_H - h) / 2), w, h);
+  ctx.drawImage(bitmap, Math.round((PW - w) / 2), Math.round((PH - h) / 2), w, h);
 
-  const img = ctx.getImageData(0, 0, PANEL_W, PANEL_H);
+  const img = ctx.getImageData(0, 0, PW, PH);
   const px = img.data;
-  const gray = new Uint8ClampedArray(PANEL_W * PANEL_H);
+  const gray = new Uint8ClampedArray(PW * PH);
   for (let i = 0, g = 0; i < px.length; i += 4, g++) {
     // Rec. 601 luma, matching what JPEGDEC hands the firmware for colour input.
     let v = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000;
@@ -51,10 +65,10 @@ export function toPanelGray(bitmap, { fit = 'cover', brightness = 0, contrast = 
 }
 
 /** Wrap a grayscale plane back into a canvas so it can be encoded or drawn. */
-function grayToCanvas(gray, mapLevel = false) {
-  const canvas = makeCanvas(PANEL_W, PANEL_H);
+function grayToCanvas(gray, w, h, mapLevel = false) {
+  const canvas = makeCanvas(w, h);
   const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(PANEL_W, PANEL_H);
+  const img = ctx.createImageData(w, h);
   const px = img.data;
   for (let g = 0, i = 0; g < gray.length; g++, i += 4) {
     const v = mapLevel ? LEVEL_VALUE[gray[g]] : gray[g];
@@ -65,8 +79,8 @@ function grayToCanvas(gray, mapLevel = false) {
   return canvas;
 }
 
-export async function grayToJpegBytes(gray, quality = 0.72) {
-  const canvas = grayToCanvas(gray);
+export async function grayToJpegBytes(gray, quality = 0.72, w = PANEL_W, h = PANEL_H) {
+  const canvas = grayToCanvas(gray, w, h);
   const blob = canvas.convertToBlob
     ? await canvas.convertToBlob({ type: 'image/jpeg', quality })
     : await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
@@ -112,11 +126,11 @@ export function dither4(gray, w = PANEL_W, h = PANEL_H) {
 }
 
 /** Draw a dithered plane onto a visible canvas at panel resolution. */
-export function paintLevels(canvas, levels) {
-  canvas.width = PANEL_W;
-  canvas.height = PANEL_H;
+export function paintLevels(canvas, levels, w = PANEL_W, h = PANEL_H) {
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(PANEL_W, PANEL_H);
+  const img = ctx.createImageData(w, h);
   const px = img.data;
   for (let g = 0, i = 0; g < levels.length; g++, i += 4) {
     const v = LEVEL_VALUE[levels[g]];
@@ -130,11 +144,12 @@ export function paintLevels(canvas, levels) {
  * Full pipeline for one file: panel-sized JPEG bytes plus the dithered preview.
  */
 export async function processPhoto(file, opts) {
+  const { w, h } = panelSize(opts.orientation);
   const bitmap = await decode(file);
   try {
     const gray = toPanelGray(bitmap, opts);
-    const jpeg = await grayToJpegBytes(gray, opts.quality);
-    return { gray, jpeg, levels: dither4(gray) };
+    const jpeg = await grayToJpegBytes(gray, opts.quality, w, h);
+    return { gray, jpeg, levels: dither4(gray, w, h), width: w, height: h };
   } finally {
     bitmap.close?.();
   }

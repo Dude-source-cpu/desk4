@@ -84,6 +84,7 @@ export function buildConfig(settings) {
     shuffle: settings.shuffle,
     showSunTimes: settings.showSunTimes,
     batteryWarn: settings.batteryWarn,
+    orientation: settings.orientation || 'portrait',
     rotation: settings.faces.filter(f => f.on).map(f => f.id),
   };
 }
