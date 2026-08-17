@@ -174,7 +174,15 @@ await sleep(200);
 
 // ── setup wizard ────────────────────────────────────────────────────────────
 
-const wizardOpen = await evaluate('!document.getElementById("wizard").hidden');
+/** True when the element is actually painted, not merely lacking [hidden]. */
+const VISIBLE = id => `(() => {
+  const el = document.getElementById('${id}');
+  if (!el) return null;
+  const box = el.getBoundingClientRect();
+  return getComputedStyle(el).display !== 'none' && box.width > 0 && box.height > 0;
+})()`;
+
+const wizardOpen = await evaluate(VISIBLE('wizard'));
 check('wizard opens on a first visit', wizardOpen === true);
 
 const wizardTitle = await evaluate('document.getElementById("wizTitle").textContent');
@@ -186,11 +194,26 @@ const wizardAdvanced = await evaluate(`(() => {
 })()`);
 check('wizard advances', /Step 2 of/.test(wizardAdvanced || ''), wizardAdvanced);
 
-const wizardClosed = await evaluate(`(() => {
-  document.getElementById('wizClose').click();
-  return document.getElementById('wizard').hidden;
+// Checked by what is on screen: setting .hidden used to report success while
+// .wizard{display:flex} kept the dialog visible, which is how a wizard nobody
+// could dismiss passed its own test.
+await evaluate(`document.getElementById('wizClose').click()`);
+check('X really hides the wizard', (await evaluate(VISIBLE('wizard'))) === false);
+
+await evaluate(`window.__wiz = document.getElementById('wizard'); __wiz.hidden = false;`);
+await evaluate(`document.getElementById('wizSkip').click()`);
+check('Skip setup really hides the wizard', (await evaluate(VISIBLE('wizard'))) === false);
+
+await evaluate(`document.getElementById('wizard').hidden = false;`);
+await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+check('Escape really hides the wizard', (await evaluate(VISIBLE('wizard'))) === false);
+
+await evaluate(`document.getElementById('wizard').hidden = false;`);
+await evaluate(`(() => {
+  const next = document.getElementById('wizNext');
+  for (let i = 0; i < 8; i++) next.click();
 })()`);
-check('wizard closes', wizardClosed === true);
+check('Finish really hides the wizard', (await evaluate(VISIBLE('wizard'))) === false);
 
 // The wizard footer must stay reachable on a short screen. A flex child with
 // overflow-y:auto and no min-height:0 refuses to shrink and pushes the
@@ -202,7 +225,9 @@ const footerReach = await evaluate(`(() => {
   const w = document.getElementById('wizard');
   w.hidden = false;
   const next = document.getElementById('wizNext');
-  for (let i = 0; i < 8; i++) next.click();
+  // Stop ON the last step: one more click is Finish, which closes the dialog
+  // and would measure a hidden button.
+  while (next.textContent !== 'Finish') next.click();
   const box = next.getBoundingClientRect();
   const visible = box.bottom <= window.innerHeight + 1 && box.top >= 0 && box.height > 0;
   document.getElementById('wizard').hidden = true;
@@ -220,19 +245,20 @@ const closeSurvives = await evaluate(`(() => {
   const real = Storage.prototype.setItem;
   Storage.prototype.setItem = () => { throw new DOMException('blocked', 'QuotaExceededError'); };
   const results = {};
+  const gone = el => getComputedStyle(el).display === 'none';
   try {
     const w = document.getElementById('wizard');
     w.hidden = false;
     document.getElementById('wizClose').click();
-    results.viaClose = w.hidden;
+    results.viaClose = gone(w);
 
     w.hidden = false;
     document.getElementById('wizSkip').click();
-    results.viaSkip = w.hidden;
+    results.viaSkip = gone(w);
 
     w.hidden = false;
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    results.viaEscape = w.hidden;
+    results.viaEscape = gone(w);
   } catch (err) {
     results.threw = String(err);
   } finally {
@@ -243,6 +269,20 @@ const closeSurvives = await evaluate(`(() => {
 check('wizard closes even when storage throws', 
       closeSurvives.viaClose === true && closeSurvives.viaSkip === true && closeSurvives.viaEscape === true,
       JSON.stringify(closeSurvives));
+
+// Everything else the app hides at runtime sits under a class that also sets
+// display, so each one needs the attribute to actually win.
+const hiddenElements = await evaluate(`(() => {
+  const out = {};
+  for (const id of ['unsupported', 'hint', 'progressWrap', 'placeResults', 'btnDisconnect']) {
+    const el = document.getElementById(id);
+    el.hidden = true;
+    out[id] = getComputedStyle(el).display === 'none';
+  }
+  return out;
+})()`);
+check('every runtime-hidden element actually hides',
+      Object.values(hiddenElements).every(Boolean), JSON.stringify(hiddenElements));
 
 // ── orientation ─────────────────────────────────────────────────────────────
 

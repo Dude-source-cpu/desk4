@@ -55,6 +55,12 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 
+/* The UA rule for [hidden] is a bare attribute selector, so any class that sets
+   display beats it — .wizard{display:flex}, .banner, .btn, .place-results all
+   did, which left every element the app hides at runtime stubbornly on screen.
+   This is the one place !important is the correct tool. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
