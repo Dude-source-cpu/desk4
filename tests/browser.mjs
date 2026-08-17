@@ -172,6 +172,27 @@ const wizardClosed = await evaluate(`(() => {
 })()`);
 check('wizard closes', wizardClosed === true);
 
+// The wizard footer must stay reachable on a short screen. A flex child with
+// overflow-y:auto and no min-height:0 refuses to shrink and pushes the
+// Back/Next row out of the sheet, which strands people on the last step.
+await send('Emulation.setDeviceMetricsOverride', { width: 360, height: 600, deviceScaleFactor: 2, mobile: true });
+await sleep(300);
+
+const footerReach = await evaluate(`(() => {
+  const w = document.getElementById('wizard');
+  w.hidden = false;
+  const next = document.getElementById('wizNext');
+  for (let i = 0; i < 8; i++) next.click();
+  const box = next.getBoundingClientRect();
+  const visible = box.bottom <= window.innerHeight + 1 && box.top >= 0 && box.height > 0;
+  document.getElementById('wizard').hidden = true;
+  return { visible, bottom: Math.round(box.bottom), viewport: window.innerHeight };
+})()`);
+check('wizard footer stays on screen when short', footerReach.visible === true, JSON.stringify(footerReach));
+
+await send('Emulation.clearDeviceMetricsOverride');
+await sleep(200);
+
 // ── orientation ─────────────────────────────────────────────────────────────
 
 const landscape = await evaluate(`(async () => {

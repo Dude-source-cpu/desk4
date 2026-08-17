@@ -91,9 +91,16 @@ function renderFaceList() {
       body.appendChild(warn);
     }
 
+    const switchWrap = document.createElement('label');
+    switchWrap.className = 'switch';
+    switchWrap.title = `Show the ${meta.name} screen`;
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
     toggle.checked = entry.on;
+    toggle.setAttribute('aria-label', `Show the ${meta.name} screen`);
+    const track = document.createElement('span');
+    track.className = 'track';
+    switchWrap.append(toggle, track);
     toggle.addEventListener('change', () => {
       entry.on = toggle.checked;
       save();
@@ -102,7 +109,7 @@ function renderFaceList() {
       drawPreview();
     });
 
-    li.append(grip, body, toggle);
+    li.append(grip, body, switchWrap);
 
     li.addEventListener('dragstart', () => {
       dragId = entry.id;
@@ -134,10 +141,10 @@ function renderFaceList() {
 }
 
 function faceWarning(id) {
-  if (id === 'photo' && photos.length === 0) return 'No photos in the queue yet.';
-  if (id === 'weather' && !settings.place) return 'No location set — this face will be skipped.';
-  if (id === 'countdown' && (!settings.events || settings.events.length === 0)) return 'No dates added yet.';
-  if (id === 'history' && !settings.onThisDay) return 'The Wikipedia lookup is switched off.';
+  if (id === 'photo' && photos.length === 0) return 'Add some photos and this will fill up.';
+  if (id === 'weather' && !settings.place) return 'Set your location first, or this gets skipped.';
+  if (id === 'countdown' && (!settings.events || settings.events.length === 0)) return 'Add a date to count down to.';
+  if (id === 'history' && !settings.onThisDay) return 'Turn the Wikipedia lookup back on to use this.';
   return null;
 }
 
@@ -455,13 +462,25 @@ function updateButtons() {
   $('btnBleOff').disabled = !connected || busy;
 }
 
+/** Human-readable "5 minutes ago" style, falling back to a date after a day. */
+function agoText(timestamp) {
+  if (!timestamp) return 'Never';
+  const minutes = Math.round((Date.now() - timestamp) / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
 function showStatus(hello) {
+  const gb = hello.freeKiB / 1024 / 1024;
   $('stBattery').textContent = `${hello.battery}%`;
-  $('stFree').textContent = `${(hello.freeKiB / 1024).toFixed(0)} MB`;
-  $('stPhotos').textContent = String(hello.photoCount);
+  $('stFree').textContent = gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(hello.freeKiB / 1024)} MB`;
+  $('stPhotos').textContent = hello.photoCount === 1 ? '1 photo' : `${hello.photoCount} photos`;
   $('stClock').textContent = hello.clockSet ? new Date(hello.epoch * 1000).toLocaleString() : 'not set';
-  $('stProto').textContent = `v${hello.proto} · ${hello.chunkMax} B chunks`;
-  $('stSync').textContent = settings.lastSync ? new Date(settings.lastSync).toLocaleString() : 'never';
+  $('stProto').textContent = `protocol v${hello.proto}`;
+  $('stSync').textContent = agoText(settings.lastSync);
 }
 
 async function sync() {
@@ -593,8 +612,8 @@ function wireOrientation() {
       await drawPreview();
       if (photos.length) {
         showHint(
-          `Photos are cropped for ${settings.orientation}. Re-apply them so they fit.`,
-          'Re-apply now',
+          'Your photos were cropped for the other orientation. Want them redone to fit?',
+          'Redo them',
           async () => {
             hideHint();
             await reprocessAll();
@@ -622,8 +641,8 @@ async function connect() {
     $('connPill').dataset.state = 'err';
     $('connLabel').textContent = 'Connection failed';
     showHint(
-      'Could not finish connecting. Hold the power button on the device for two seconds first — its automatic Bluetooth window is too short to pair by hand.',
-      'Open the setup guide',
+      'Couldn’t finish connecting. Hold the power button on the frame for two seconds until it says Bluetooth is on, then try again.',
+      'Show me how',
       () => wizard.open(3),
     );
     throw err;
@@ -633,7 +652,7 @@ async function connect() {
 function wireDevice() {
   link.addEventListener('log', event => log(event.detail.msg, event.detail.kind));
   link.addEventListener('state', event => {
-    $('connDot').dataset.state = event.detail.state;
+    $('connPill').dataset.state = event.detail.state;
     $('connLabel').textContent = event.detail.label;
     updateButtons();
   });
@@ -698,7 +717,7 @@ function wirePhotos() {
 
   $('btnReprocess').addEventListener('click', reprocessAll);
   $('btnClearPhotos').addEventListener('click', async () => {
-    if (!confirm('Remove every photo from the queue? They will be deleted from the card on the next sync.')) return;
+    if (!confirm('Remove every photo? They will also come off the frame the next time you send.')) return;
     await store.clearPhotos();
     await refreshPhotos();
     drawPreview();

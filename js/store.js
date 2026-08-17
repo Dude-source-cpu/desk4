@@ -6,12 +6,12 @@ const DB_NAME = 'photox4';
 const DB_STORE = 'photos';
 
 export const FACES = [
-  { id: 'photo', name: 'Photos', desc: 'Your pictures, one per turn' },
-  { id: 'weather', name: 'Weather', desc: "Today's conditions, hourly and the next few days" },
+  { id: 'photo', name: 'Photos', desc: 'One of your pictures, full screen' },
+  { id: 'weather', name: 'Weather', desc: 'Today’s forecast, hour by hour' },
   { id: 'quote', name: 'Quote', desc: 'A line worth reading twice' },
-  { id: 'word', name: 'Word of the day', desc: 'A word, how to say it, and what it means' },
-  { id: 'countdown', name: 'Countdown', desc: 'Days until the things you are waiting for' },
-  { id: 'history', name: 'On this day', desc: "Something that happened on today's date" },
+  { id: 'word', name: 'Word of the day', desc: 'A word, how to say it, what it means' },
+  { id: 'countdown', name: 'Countdown', desc: 'Days until the things you’re waiting for' },
+  { id: 'history', name: 'On this day', desc: 'Something that happened on today’s date' },
 ];
 
 const DEFAULTS = {

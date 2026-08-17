@@ -5,12 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>desk4 — Xteink X4 companion</title>
 <meta name="description" content="Send photos, weather, and quotes to an Xteink X4 over Bluetooth.">
-<meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14140f" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23111'/><rect x='3.5' y='2.5' width='9' height='11' rx='1' fill='%23f7f6f3'/></svg>">
+<meta name="theme-color" content="#f8f6f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17181a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%232f5d9e'/><rect x='4' y='2.5' width='8' height='11' rx='1.5' fill='%23fff'/></svg>">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
+
+<!-- symbol library: referenced with <use> so icons cost one definition each -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-device" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M10 5.5h4"/></symbol>
+  <symbol id="i-faces" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></symbol>
+  <symbol id="i-photos" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="m3.5 17 5-5 4.5 4.5L16 14l4.5 4.5"/></symbol>
+  <symbol id="i-content" viewBox="0 0 24 24"><path d="M4 19.5 8 18l11-11a2.1 2.1 0 0 0-3-3L5 15Z"/><path d="m14.5 5.5 4 4"/></symbol>
+  <symbol id="i-bt" viewBox="0 0 24 24"><path d="M8 7.5 16 16l-4 4V4l4 4-8 8.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2.5" y="7.5" width="16" height="9" rx="2"/><path d="M21 11v2"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5Z"/></symbol>
+</svg>
 
 <!-- ───────────────────────────── setup wizard ───────────────────────────── -->
 <div id="wizard" class="wizard" hidden>
@@ -48,8 +63,9 @@
 </header>
 
 <div id="unsupported" class="banner banner-warn" hidden>
-  <strong>This browser can't reach the device.</strong> Web Bluetooth needs Chrome, Edge, or Opera
-  on desktop or Android. You can still prepare photos and content here and sync from one of those later.
+  <strong>This browser can’t reach your frame.</strong>
+  <span>Bluetooth from a web page needs Chrome, Edge, or Opera. You can still set everything up
+  here and send it from one of those later.</span>
 </div>
 
 <div id="hint" class="banner banner-hint" hidden>
@@ -60,63 +76,80 @@
 <div class="layout">
   <div class="col-main">
     <nav class="tabs" role="tablist">
-      <button class="tab is-active" role="tab" data-panel="device">Device</button>
-      <button class="tab" role="tab" data-panel="faces">Faces</button>
-      <button class="tab" role="tab" data-panel="photos">Photos</button>
-      <button class="tab" role="tab" data-panel="content">Content</button>
+      <button class="tab is-active" role="tab" data-panel="device">
+        <svg class="ico"><use href="#i-device"/></svg>Device
+      </button>
+      <button class="tab" role="tab" data-panel="faces">
+        <svg class="ico"><use href="#i-faces"/></svg>Screens
+      </button>
+      <button class="tab" role="tab" data-panel="photos">
+        <svg class="ico"><use href="#i-photos"/></svg>Photos
+      </button>
+      <button class="tab" role="tab" data-panel="content">
+        <svg class="ico"><use href="#i-content"/></svg>Content
+      </button>
     </nav>
 
     <!-- ─────────────────────────── Device ─────────────────────────────── -->
     <section class="panel is-active" data-panel="device">
-      <div class="card card-accent">
-        <h2>Getting started</h2>
-        <p class="muted">Four short steps: flash the firmware, drop one file on the SD card, turn on
-          the device's Bluetooth, and connect.</p>
-        <div class="row">
-          <button id="btnWizard" class="btn btn-primary">Open the setup guide</button>
-          <button id="btnStarterConfig" class="btn">Download config.json</button>
+
+      <div id="setupCard" class="card hero">
+        <div class="hero-icon"><svg class="ico ico-lg"><use href="#i-bt"/></svg></div>
+        <div class="hero-body">
+          <h2>First time here?</h2>
+          <p>Four short steps and your frame is running. It takes about five minutes.</p>
+        </div>
+        <div class="hero-actions">
+          <button id="btnWizard" class="btn btn-primary btn-lg">Start setup</button>
+          <button id="btnStarterConfig" class="btn">Get config.json</button>
         </div>
       </div>
 
       <div class="card">
-        <h2>Sync</h2>
-        <p class="muted">
-          Hold the power button on the X4 for about two seconds, until the screen says Bluetooth is on.
-          Then connect and sync. <strong>A short hold matters</strong> — the automatic window after each
-          face change is only seconds long, which is rarely enough to finish pairing.
-        </p>
-        <div class="row">
-          <button id="btnSync" class="btn btn-primary" disabled>Sync now</button>
-          <button id="btnNextFace" class="btn" disabled>Next face</button>
+        <h2 class="card-title">Send your photos and content</h2>
+        <p class="lead">Hold the power button on the frame for two seconds, until it says
+          <strong>Bluetooth is on</strong>. Then press send.</p>
+        <div class="actions">
+          <button id="btnSync" class="btn btn-primary btn-lg" disabled>
+            <svg class="ico"><use href="#i-check"/></svg>Send to frame
+          </button>
+          <button id="btnNextFace" class="btn" disabled>Skip to next screen</button>
           <button id="btnBleOff" class="btn" disabled>Turn Bluetooth off</button>
         </div>
-        <label class="check">
-          <input type="checkbox" id="optAutoReconnect" checked>
-          <span>Keep trying to reconnect while this tab is open</span>
-        </label>
         <div id="progressWrap" class="progress" hidden>
           <div class="progress-bar"><i id="progressBar"></i></div>
           <div id="progressText" class="progress-text"></div>
         </div>
+        <details class="more">
+          <summary>Why do I have to hold the button?</summary>
+          <p>Bluetooth is the most power-hungry thing in the frame, so it stays off. The frame does
+            switch it on briefly after every screen change, but only for a few seconds — enough for
+            this page to reconnect on its own once paired, rarely enough to pair the first time.
+            Holding the button gives you five full minutes.</p>
+          <p>While the frame is plugged in to USB it stays awake and reachable the whole time.</p>
+        </details>
+        <label class="check">
+          <input type="checkbox" id="optAutoReconnect" checked>
+          <span>Reconnect automatically while this page is open</span>
+        </label>
       </div>
 
       <div class="card">
-        <h2>Status</h2>
-        <dl class="status-grid">
-          <div><dt>Battery</dt><dd id="stBattery">—</dd></div>
-          <div><dt>Free space</dt><dd id="stFree">—</dd></div>
-          <div><dt>Photos on device</dt><dd id="stPhotos">—</dd></div>
-          <div><dt>Device clock</dt><dd id="stClock">—</dd></div>
-          <div><dt>Last sync</dt><dd id="stSync">—</dd></div>
-          <div><dt>Protocol</dt><dd id="stProto">—</dd></div>
-        </dl>
+        <h2 class="card-title">Your frame</h2>
+        <ul class="stats">
+          <li><svg class="ico"><use href="#i-battery"/></svg><span class="stat-label">Battery</span><span id="stBattery" class="stat-value">—</span></li>
+          <li><svg class="ico"><use href="#i-folder"/></svg><span class="stat-label">Space left</span><span id="stFree" class="stat-value">—</span></li>
+          <li><svg class="ico"><use href="#i-photos"/></svg><span class="stat-label">Photos on frame</span><span id="stPhotos" class="stat-value">—</span></li>
+          <li><svg class="ico"><use href="#i-clock"/></svg><span class="stat-label">Last sent</span><span id="stSync" class="stat-value">—</span></li>
+        </ul>
+        <p class="tech muted small">Clock <span id="stClock">—</span> · <span id="stProto">—</span></p>
       </div>
 
       <div class="card">
-        <h2>Rotation</h2>
+        <h2 class="card-title">How often it changes</h2>
         <div class="field-grid">
           <label class="field">
-            <span>Change face every</span>
+            <span>New screen every</span>
             <select id="optInterval">
               <option value="5">5 minutes</option>
               <option value="10" selected>10 minutes</option>
@@ -127,62 +160,61 @@
             </select>
           </label>
           <label class="field">
-            <span>Bluetooth window per change</span>
+            <span>Listen for this page</span>
             <select id="optSyncWindow">
-              <option value="0">Off — best battery</option>
-              <option value="10">10 seconds</option>
-              <option value="20" selected>20 seconds</option>
-              <option value="45">45 seconds</option>
+              <option value="0">Never — best battery</option>
+              <option value="10">10 seconds each time</option>
+              <option value="20" selected>20 seconds each time</option>
+              <option value="45">45 seconds each time</option>
             </select>
           </label>
         </div>
         <label class="check">
           <input type="checkbox" id="optShuffle">
-          <span>Shuffle the order instead of cycling in sequence</span>
+          <span>Shuffle the order instead of going in sequence</span>
         </label>
-        <p class="muted small">
-          A short click of the power button skips to the next face at any time. On USB power the frame
-          stays awake and reachable, so none of this costs anything while it is charging.
-        </p>
+        <p class="muted small">A quick press of the power button skips ahead at any time.</p>
       </div>
 
       <div class="card">
-        <h2>Orientation</h2>
+        <h2 class="card-title">Which way up?</h2>
         <div class="seg" role="radiogroup" aria-label="Orientation">
           <button class="seg-btn is-active" data-orientation="portrait" role="radio" aria-checked="true">
-            <span class="seg-icon seg-portrait" aria-hidden="true"></span> Portrait
+            <span class="seg-icon seg-portrait" aria-hidden="true"></span>
+            <span>Standing</span>
           </button>
           <button class="seg-btn" data-orientation="landscape" role="radio" aria-checked="false">
-            <span class="seg-icon seg-landscape" aria-hidden="true"></span> Landscape
+            <span class="seg-icon seg-landscape" aria-hidden="true"></span>
+            <span>On its side</span>
           </button>
         </div>
-        <p class="muted small">Landscape stands the frame on its long edge, 800 × 480. Photos are
-          re-cropped for the shape you pick, so switching means re-sending them.</p>
+        <p class="muted small">Photos are cropped to fit, so if you change this you’ll want to send
+          them again — we’ll offer to redo them for you.</p>
       </div>
     </section>
 
-    <!-- ──────────────────────────── Faces ─────────────────────────────── -->
+    <!-- ──────────────────────────── Screens ───────────────────────────── -->
     <section class="panel" data-panel="faces">
       <div class="card">
-        <h2>In rotation</h2>
-        <p class="muted">Turn faces on or off, and drag the handle to reorder.</p>
+        <h2 class="card-title">What your frame shows</h2>
+        <p class="lead">Switch screens on or off, and drag to change the order they appear in.</p>
         <ul id="faceList" class="face-list"></ul>
       </div>
       <div class="card">
-        <h2>Options</h2>
+        <h2 class="card-title">Small preferences</h2>
         <label class="check">
           <input type="checkbox" id="optSunTimes" checked>
-          <span>Show sunrise and sunset on the weather face</span>
+          <span>Show sunrise and sunset on the weather screen</span>
         </label>
         <label class="check">
           <input type="checkbox" id="optBatteryWarn" checked>
-          <span>Show a battery warning on every face below 15%</span>
+          <span>Warn me on screen when the battery drops below 15%</span>
         </label>
         <label class="field">
-          <span>Temperature unit</span>
+          <span>Temperature</span>
           <select id="optUnit">
-            <option value="celsius">Celsius</option>
-            <option value="fahrenheit">Fahrenheit</option>
+            <option value="celsius">Celsius (°C)</option>
+            <option value="fahrenheit">Fahrenheit (°F)</option>
           </select>
         </label>
       </div>
@@ -191,22 +223,25 @@
     <!-- ──────────────────────────── Photos ────────────────────────────── -->
     <section class="panel" data-panel="photos">
       <div class="card">
-        <h2>Photos</h2>
+        <h2 class="card-title">Your photos</h2>
         <div id="dropzone" class="dropzone">
           <input type="file" id="fileInput" accept="image/*" multiple hidden>
-          <p class="dropzone-title">Drop photos here</p>
-          <p><button id="btnPick" class="btn">Choose photos</button></p>
-          <p class="muted small">Cropped to the panel, converted to grayscale, and dithered to the four
-            greys the display can hold. The preview is exact.</p>
+          <svg class="ico ico-lg drop-ico"><use href="#i-photos"/></svg>
+          <p class="dropzone-title">Drag photos here</p>
+          <p><button id="btnPick" class="btn btn-primary btn-lg">
+            <svg class="ico"><use href="#i-plus"/></svg>Choose photos
+          </button></p>
+          <p class="muted small">They’re resized and converted here, in your browser. Nothing is
+            uploaded anywhere except your frame.</p>
         </div>
-        <details class="tune">
-          <summary>Adjust how photos are converted</summary>
+        <details class="more">
+          <summary>Fine-tune how photos look</summary>
           <div class="field-grid">
             <label class="field">
               <span>Framing</span>
               <select id="optFit">
-                <option value="cover" selected>Fill the screen (crop)</option>
-                <option value="contain">Fit the whole photo (white edges)</option>
+                <option value="cover" selected>Fill the screen</option>
+                <option value="contain">Show the whole photo</option>
               </select>
             </label>
             <label class="field">
@@ -218,20 +253,20 @@
               <input type="range" id="optContrast" min="0.6" max="2" step="0.05" value="1.15">
             </label>
             <label class="field">
-              <span>JPEG quality <output id="outQuality">0.72</output></span>
+              <span>Detail <output id="outQuality">0.72</output></span>
               <input type="range" id="optQuality" min="0.4" max="0.92" step="0.02" value="0.72">
             </label>
           </div>
-          <div class="row">
-            <button id="btnReprocess" class="btn">Re-apply to all photos</button>
-            <button id="btnClearPhotos" class="btn btn-danger">Remove all</button>
+          <div class="actions">
+            <button id="btnReprocess" class="btn">Apply to all photos</button>
+            <button id="btnClearPhotos" class="btn btn-danger">Remove every photo</button>
           </div>
         </details>
       </div>
       <div class="card">
-        <h2>Queue <span id="photoCount" class="pill">0</span></h2>
-        <p class="muted small">Photos stay in this browser until you sync. Removing one here also
-          deletes it from the card on the next sync.</p>
+        <h2 class="card-title">Ready to send <span id="photoCount" class="pill">0</span></h2>
+        <p class="muted small">These stay in this browser until you send them. Remove one here and it
+          comes off the frame next time too.</p>
         <ul id="photoGrid" class="photo-grid"></ul>
       </div>
     </section>
@@ -239,45 +274,46 @@
     <!-- ─────────────────────────── Content ────────────────────────────── -->
     <section class="panel" data-panel="content">
       <div class="card">
-        <h2>Weather</h2>
-        <div class="row">
+        <h2 class="card-title">Weather</h2>
+        <p class="lead">Pick where you are, and the frame shows today’s forecast.</p>
+        <div class="actions">
           <input type="text" id="placeInput" class="input" placeholder="Town or city" autocomplete="off">
           <button id="btnPlaceSearch" class="btn">Search</button>
-          <button id="btnGeo" class="btn">Use my location</button>
+          <button id="btnGeo" class="btn"><svg class="ico"><use href="#i-sun"/></svg>Use my location</button>
         </div>
         <ul id="placeResults" class="place-results" hidden></ul>
-        <p id="placeCurrent" class="muted">No location set — the weather face will be skipped.</p>
+        <p id="placeCurrent" class="muted">No location yet — the weather screen will be skipped.</p>
         <button id="btnRefreshWeather" class="btn" disabled>Refresh forecast</button>
       </div>
 
       <div class="card">
-        <h2>Quotes</h2>
-        <p class="muted small">A different one each time the quote face comes up. <span id="quoteCount"></span></p>
+        <h2 class="card-title">Quotes</h2>
+        <p class="lead">A different one each time the quote screen comes round. <span id="quoteCount"></span></p>
         <textarea id="quoteInput" class="input textarea" rows="3"
-          placeholder="Your own quote&#10;— Attribution"></textarea>
-        <div class="row">
-          <button id="btnAddQuote" class="btn">Add quote</button>
-          <button id="btnResetQuotes" class="btn">Reset to the built-in set</button>
+          placeholder="Type a quote here&#10;— and who said it"></textarea>
+        <div class="actions">
+          <button id="btnAddQuote" class="btn btn-primary">Add quote</button>
+          <button id="btnResetQuotes" class="btn">Use the built-in ones</button>
         </div>
         <ul id="quoteList" class="mini-list"></ul>
       </div>
 
       <div class="card">
-        <h2>Countdowns</h2>
-        <p class="muted small">Days remaining, no times.</p>
-        <div class="row">
-          <input type="text" id="eventTitle" class="input" placeholder="What">
+        <h2 class="card-title">Countdowns</h2>
+        <p class="lead">Birthdays, trips, anything you’re counting down to.</p>
+        <div class="actions">
+          <input type="text" id="eventTitle" class="input" placeholder="What is it?">
           <input type="date" id="eventDate" class="input">
-          <button id="btnAddEvent" class="btn">Add</button>
+          <button id="btnAddEvent" class="btn btn-primary">Add</button>
         </div>
         <ul id="eventList" class="mini-list"></ul>
       </div>
 
       <div class="card">
-        <h2>On this day</h2>
+        <h2 class="card-title">On this day</h2>
         <label class="check">
           <input type="checkbox" id="optOnThisDay" checked>
-          <span>Fetch a historical entry for today from Wikipedia when syncing</span>
+          <span>Show something that happened on today’s date, from Wikipedia</span>
         </label>
       </div>
     </section>
@@ -287,11 +323,11 @@
   <aside class="col-side">
     <div class="card preview-card">
       <div class="preview-head">
-        <h2>Preview</h2>
+        <h2 class="card-title">Preview</h2>
         <div class="preview-nav">
-          <button id="btnPrevPreview" class="icon-btn" aria-label="Previous face">‹</button>
+          <button id="btnPrevPreview" class="icon-btn" aria-label="Previous screen">‹</button>
           <span id="previewLabel" class="preview-label">—</span>
-          <button id="btnNextPreview" class="icon-btn" aria-label="Next face">›</button>
+          <button id="btnNextPreview" class="icon-btn" aria-label="Next screen">›</button>
         </div>
       </div>
       <div class="device" id="deviceFrame">
@@ -299,22 +335,22 @@
           <canvas id="preview" width="480" height="800"></canvas>
         </div>
       </div>
-      <p class="muted small">Photos preview exactly as the panel renders them. Text faces are drawn
-        here with web fonts, so spacing will differ a little.</p>
+      <p class="muted small preview-note">Photos look exactly like this on the frame. Text screens are
+        drawn here with different fonts, so spacing will shift slightly.</p>
     </div>
 
     <details class="card log-card">
-      <summary><h2>Activity log</h2></summary>
+      <summary>Activity log</summary>
       <pre id="log" class="log"></pre>
     </details>
   </aside>
 </div>
 
 <nav class="bottombar" aria-label="Sections">
-  <button class="bottom-tab is-active" data-panel="device"><span class="bt-ico">◉</span>Device</button>
-  <button class="bottom-tab" data-panel="faces"><span class="bt-ico">▤</span>Faces</button>
-  <button class="bottom-tab" data-panel="photos"><span class="bt-ico">▣</span>Photos</button>
-  <button class="bottom-tab" data-panel="content"><span class="bt-ico">✎</span>Content</button>
+  <button class="bottom-tab is-active" data-panel="device"><svg class="ico"><use href="#i-device"/></svg>Device</button>
+  <button class="bottom-tab" data-panel="faces"><svg class="ico"><use href="#i-faces"/></svg>Screens</button>
+  <button class="bottom-tab" data-panel="photos"><svg class="ico"><use href="#i-photos"/></svg>Photos</button>
+  <button class="bottom-tab" data-panel="content"><svg class="ico"><use href="#i-content"/></svg>Content</button>
 </nav>
 
 <script type="module" src="js/app.js"></script>

@@ -108,7 +108,7 @@ pio run -e companion -t upload</pre>
             <li>Copy it into a folder called <code>photox4</code> at the root of the SD card.</li>
             <li>Put the card back in the device.</li>
           </ol>
-          <p><button id="wizDownload" class="btn btn-primary">Download config.json</button></p>
+          <p><button id="wizDownload" class="btn btn-primary btn-lg">Download config.json</button></p>
           <div class="wizard-note">It carries the settings currently on this page, so if you change the
           rotation or orientation later, just sync over Bluetooth — no need to touch the card again.</div>`,
         onShow: () => {
@@ -117,7 +117,7 @@ pio run -e companion -t upload</pre>
         },
       },
       {
-        title: 'Switch the device Bluetooth on',
+        title: 'Wake up Bluetooth',
         body: `
           <div class="press-demo">
             <div class="body"></div>
@@ -132,11 +132,11 @@ pio run -e companion -t upload</pre>
           <p class="muted small">A <em>short</em> click does something different: it skips to the next face.</p>`,
       },
       {
-        title: 'Connect',
+        title: 'Connect to your frame',
         body: `
           <p>With the device showing <em>Bluetooth is on</em>, connect and pick it from the browser's
           list. It appears as <code>PhotoX4-…</code>.</p>
-          <p><button id="wizConnect" class="btn btn-primary">Connect to the device</button></p>
+          <p><button id="wizConnect" class="btn btn-primary btn-lg">Connect</button></p>
           <p id="wizState" class="wizard-state"></p>
           <div class="wizard-note">Bluetooth from a browser needs Chrome, Edge, or Opera, and a machine
           with a real Bluetooth radio — inside a virtual machine it usually is not passed through.</div>`,
@@ -157,7 +157,7 @@ pio run -e companion -t upload</pre>
         },
       },
       {
-        title: 'Add something to show',
+        title: 'Give it something to show',
         body: `
           <p>Two things worth doing before the first sync:</p>
           <ul>
@@ -178,11 +178,11 @@ pio run -e companion -t upload</pre>
         },
       },
       {
-        title: 'Sync, and you are done',
+        title: 'Send it over',
         body: `
-          <p>Press <strong>Sync now</strong> on the Device tab. It sets the clock, sends your settings
+          <p>Press <strong>Send to frame</strong> on the Device tab. It sets the clock, sends your settings
           and content, and uploads any photos the device does not already have.</p>
-          <p><button id="wizSync" class="btn btn-primary">Sync now</button></p>
+          <p><button id="wizSync" class="btn btn-primary btn-lg">Send to frame</button></p>
           <p id="wizState" class="wizard-state"></p>
           <p>After this, leave the tab open and it will reconnect on its own during the device's own
           short Bluetooth windows, keeping the weather current through the day.</p>
