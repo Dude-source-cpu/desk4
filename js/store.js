@@ -60,7 +60,14 @@ export function loadSettings() {
 }
 
 export function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  // Storage can be blocked or full. Losing the save is survivable; letting the
+  // exception escape into a click handler is not — it aborts whatever the user
+  // was doing halfway through.
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (err) {
+    console.warn('desk4: settings could not be saved', err);
+  }
 }
 
 export function faceMeta(id) {

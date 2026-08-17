@@ -213,6 +213,37 @@ check('wizard footer stays on screen when short', footerReach.visible === true, 
 await send('Emulation.clearDeviceMetricsOverride');
 await sleep(200);
 
+// Dismissing must survive a localStorage that throws: every exit route (X,
+// backdrop, Finish, Escape) funnels through close(), so one exception there
+// used to trap people in the dialog with no way out.
+const closeSurvives = await evaluate(`(() => {
+  const real = Storage.prototype.setItem;
+  Storage.prototype.setItem = () => { throw new DOMException('blocked', 'QuotaExceededError'); };
+  const results = {};
+  try {
+    const w = document.getElementById('wizard');
+    w.hidden = false;
+    document.getElementById('wizClose').click();
+    results.viaClose = w.hidden;
+
+    w.hidden = false;
+    document.getElementById('wizSkip').click();
+    results.viaSkip = w.hidden;
+
+    w.hidden = false;
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    results.viaEscape = w.hidden;
+  } catch (err) {
+    results.threw = String(err);
+  } finally {
+    Storage.prototype.setItem = real;
+  }
+  return results;
+})()`);
+check('wizard closes even when storage throws', 
+      closeSurvives.viaClose === true && closeSurvives.viaSkip === true && closeSurvives.viaEscape === true,
+      JSON.stringify(closeSurvives));
+
 // ── orientation ─────────────────────────────────────────────────────────────
 
 const landscape = await evaluate(`(async () => {

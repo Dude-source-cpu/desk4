@@ -24,11 +24,18 @@ export class Wizard {
   }
 
   static hasRun() {
-    return localStorage.getItem(SEEN_KEY) === '1';
+    // Storage can be unavailable entirely (blocked site data, private modes).
+    // Treating that as "never run" is the harmless answer.
+    try {
+      return localStorage.getItem(SEEN_KEY) === '1';
+    } catch {
+      return false;
+    }
   }
 
   wire() {
     $('wizClose').addEventListener('click', () => this.close());
+    $('wizSkip').addEventListener('click', () => this.close());
     $('wizBack').addEventListener('click', () => this.go(this.index - 1));
     $('wizNext').addEventListener('click', () => {
       const step = this.steps[this.index];
@@ -39,6 +46,9 @@ export class Wizard {
     $('wizard').addEventListener('click', event => {
       if (event.target === $('wizard')) this.close();
     });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !$('wizard').hidden) this.close();
+    });
   }
 
   open(at = 0) {
@@ -47,9 +57,19 @@ export class Wizard {
     this.render();
   }
 
+  /**
+   * Dismissing must never depend on anything that can fail. Persisting the
+   * "seen" flag used to come first, so a localStorage that threw — blocked site
+   * data, a full quota — took the close with it, and since the X, the backdrop
+   * and Finish all land here, every way out broke at once.
+   */
   close() {
-    localStorage.setItem(SEEN_KEY, '1');
     $('wizard').hidden = true;
+    try {
+      localStorage.setItem(SEEN_KEY, '1');
+    } catch (err) {
+      console.warn('desk4: could not remember that setup was seen', err);
+    }
   }
 
   go(index) {
