@@ -469,14 +469,35 @@ await sleep(400);
 
 const mobile = await evaluate(`(() => {
   const rail = document.querySelector('.rail');
+  const bar = document.querySelector('.bottom-tabs');
+  const tabs = [...document.querySelectorAll('.bottom-tab')];
+  const barBox = bar.getBoundingClientRect();
   return {
+    // Exactly one navigation is shown: a rail and a bottom bar at once is
+    // duplicate controls for the same thing.
     railVisible: getComputedStyle(rail).display !== 'none',
+    barVisible: getComputedStyle(bar).display !== 'none',
+    onScreen: barBox.top < window.innerHeight && barBox.bottom > 0,
+    // Every destination reachable, and each target big enough to hit.
+    tabCount: tabs.length,
+    allTappable: tabs.every(t => t.getBoundingClientRect().height >= 44),
     overflows: document.documentElement.scrollWidth > window.innerWidth + 1,
     scrollWidth: document.documentElement.scrollWidth,
     inner: window.innerWidth,
   };
 })()`);
-check('navigation is reachable on a phone', mobile.railVisible === true);
+check('phone shows the bottom bar, not the rail',
+      mobile.barVisible === true && mobile.railVisible === false, JSON.stringify(mobile));
+check('bottom bar is on screen and tappable',
+      mobile.onScreen === true && mobile.tabCount === 4 && mobile.allTappable === true,
+      JSON.stringify(mobile));
+const fabClear = await evaluate(`(() => {
+  const fab = document.getElementById('fabSync').getBoundingClientRect();
+  const bar = document.querySelector('.bottom-tabs').getBoundingClientRect();
+  return { overlaps: fab.bottom > bar.top && fab.right > bar.left, fabBottom: fab.bottom, barTop: bar.top };
+})()`);
+check('sync button does not cover the bottom bar', fabClear.overlaps === false, JSON.stringify(fabClear));
+
 check('narrow layout does not scroll sideways', mobile.overflows === false,
       `scrollWidth ${mobile.scrollWidth} vs ${mobile.inner}`);
 

@@ -4,6 +4,7 @@ import * as store from './store.js';
 import * as content from './content.js';
 import * as weather from './weather.js';
 import * as preview from './preview.js';
+import * as calendar from './calendar.js';
 import { Wizard } from './wizard.js';
 
 const $ = id => document.getElementById(id);
@@ -632,6 +633,9 @@ function goToPanel(name) {
   document.querySelectorAll('.panel').forEach(panel => {
     panel.classList.toggle('is-active', panel.dataset.panel === name);
   });
+  // The preview column keys off this on phones, where it belongs to Frame
+  // rather than trailing every other tab.
+  document.body.dataset.panel = name;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -894,6 +898,45 @@ function wireContent() {
     renderFaceList();
     drawPreview();
   });
+
+  $('btnImportIcs').addEventListener('click', () => $('icsInput').click());
+  $('icsInput').addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';  // let the same file be picked again after an edit
+    if (!file) return;
+    await importCalendar(file);
+  });
+}
+
+/** Reads an .ics export and folds whatever is still ahead into the countdowns. */
+async function importCalendar(file) {
+  const result = $('icsResult');
+  result.hidden = false;
+  try {
+    const text = await file.text();
+    const found = calendar.parseIcs(text, content.epochDay(new Date()));
+    if (!found.length) {
+      result.textContent = 'No upcoming events in that file — it may only contain dates that have passed.';
+      log(`${file.name}: no upcoming events`);
+      return;
+    }
+
+    const { events, added } = calendar.mergeEvents(settings.events, found);
+    settings.events = events;
+    save();
+    renderEvents();
+    renderFaceList();
+    await drawPreview();
+
+    const skipped = found.length - added;
+    result.textContent = added
+      ? `Added ${added} countdown${added === 1 ? '' : 's'}${skipped ? `, skipped ${skipped} already on the list` : ''}.`
+      : 'Those events are already on your list.';
+    log(`imported ${added} of ${found.length} events from ${file.name}`);
+  } catch (err) {
+    result.textContent = `Could not read that file: ${err.message}`;
+    log(`calendar import failed: ${err.message}`, 'error');
+  }
 }
 
 function downloadConfig() {
@@ -954,6 +997,16 @@ async function main() {
   bindControl('optBatteryWarn', 'batteryWarn');
   bindControl('optUnit', 'unit', { apply: refreshForecast });
   bindControl('optOnThisDay', 'onThisDay', { apply: () => renderFaceList() });
+  // Credentials are typed, not chosen, so they save on input rather than change
+  // — a half-typed password left unsaved by a tab-away is a confusing bug.
+  for (const [id, key] of [['wifiSsid', 'wifiSsid'], ['wifiPassword', 'wifiPassword']]) {
+    const el = $(id);
+    el.value = settings[key] || '';
+    el.addEventListener('input', () => {
+      settings[key] = el.value;
+      save();
+    });
+  }
 
   $('unsupported').hidden = isSupported();
   updateButtons();

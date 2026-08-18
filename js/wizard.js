@@ -104,7 +104,7 @@ export class Wizard {
           face at a time — a photo, today's weather, a quote — and changes every ten minutes.</p>
           <p>There is <strong>no clock on any face</strong>. It is meant to be glanced at, not consulted.</p>
           <p class="muted small">Setup takes a few minutes and you only do it once. You can reopen this
-          guide any time from the Device tab.</p>`,
+          guide any time from Settings.</p>`,
       },
       {
         title: 'Flash the companion firmware',
@@ -200,7 +200,7 @@ pio run -e companion -t upload</pre>
       {
         title: 'Send it over',
         body: `
-          <p>Press <strong>Send to frame</strong> on the Device tab. It sets the clock, sends your settings
+          <p>Press the round <strong>Sync</strong> button in the corner. It sets the clock, sends your settings
           and content, and uploads any photos the device does not already have.</p>
           <p><button id="wizSync" class="btn btn-primary btn-lg">Send to frame</button></p>
           <p id="wizState" class="wizard-state"></p>

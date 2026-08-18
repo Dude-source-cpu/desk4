@@ -86,6 +86,11 @@ export function buildConfig(settings) {
     batteryWarn: settings.batteryWarn,
     orientation: settings.orientation || 'portrait',
     rotation: settings.faces.filter(f => f.on).map(f => f.id),
+    // Omitted entirely when unset: an empty object would clear credentials the
+    // frame already has, and the firmware treats a missing key as "no change".
+    ...(settings.wifiSsid
+      ? { wifi: { ssid: settings.wifiSsid, password: settings.wifiPassword || '' } }
+      : {}),
   };
 }
 
