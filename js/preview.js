@@ -619,7 +619,7 @@ export function drawHistory(canvas, entry, orientation = 'portrait') {
     const columns = splitColumns(30);
     columnDivider(ctx, columns, ruleY + 22, B - 8);
     ctx.textAlign = 'left';
-    ctx.font = `700 54px ${SANS}`;
+    ctx.font = `700 26px ${SANS}`;
     if (entry.y) ctx.fillText(String(entry.y), columns.leftX, ruleY + 40);
     paragraph(ctx, entry.t, columns.rightX, columns.rightWidth, ruleY + 40, B, LINE, 10, `26px ${SERIF}`);
     return;
@@ -628,9 +628,9 @@ export function drawHistory(canvas, entry, orientation = 'portrait') {
   let y = ruleY + 46;
   if (entry.y) {
     ctx.textAlign = 'left';
-    ctx.font = `700 54px ${SANS}`;
+    ctx.font = `700 26px ${SANS}`;
     ctx.fillText(String(entry.y), L, y);
-    y += 100;
+    y += 60;
   }
   paragraph(ctx, entry.t, L, W, y, B, LINE, 10, `26px ${SERIF}`);
 }

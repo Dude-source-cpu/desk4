@@ -315,6 +315,63 @@ const hiddenElements = await evaluate(`(() => {
 check('every runtime-hidden element actually hides',
       Object.values(hiddenElements).every(Boolean), JSON.stringify(hiddenElements));
 
+// ── sync button ─────────────────────────────────────────────────────────────
+
+const fab = await evaluate(`(() => {
+  const el = document.getElementById('fabSync');
+  if (!el) return { missing: true };
+  const box = el.getBoundingClientRect();
+  const style = getComputedStyle(el);
+  return {
+    visible: style.display !== 'none' && box.width > 40 && box.height > 40,
+    round: Math.abs(box.width - box.height) < 2,
+    fixed: style.position === 'fixed',
+    // Disabled until a device is connected, so it cannot be pressed into an error.
+    disabledWhileOffline: el.disabled === true,
+    inLowerCorner: box.bottom > window.innerHeight * 0.6 && box.right > window.innerWidth * 0.6,
+  };
+})()`);
+check('sync button is a round fixed control', fab && fab.visible && fab.round && fab.fixed, JSON.stringify(fab));
+check('sync button sits in the lower corner', fab && fab.inLowerCorner, JSON.stringify(fab));
+check('sync button is disabled until connected', fab && fab.disabledWhileOffline, JSON.stringify(fab));
+
+// It has to survive a tab change: that is the whole reason it floats.
+const fabAcrossTabs = await evaluate(`(async () => {
+  const seen = [];
+  for (const tab of document.querySelectorAll('.tab')) {
+    tab.click();
+    await new Promise(r => setTimeout(r, 120));
+    seen.push(getComputedStyle(document.getElementById('fabSync')).display !== 'none');
+  }
+  return seen;
+})()`);
+check('sync button stays on every tab', Array.isArray(fabAcrossTabs) && fabAcrossTabs.length > 1
+      && fabAcrossTabs.every(Boolean), JSON.stringify(fabAcrossTabs));
+
+// ── photo settings reset ────────────────────────────────────────────────────
+
+const reset = await evaluate(`(async () => {
+  document.querySelector('.tab[data-tab="photos"]')?.click();
+  await new Promise(r => setTimeout(r, 120));
+  const bright = document.getElementById('optBright');
+  const contrast = document.getElementById('optContrast');
+  bright.value = '40';
+  bright.dispatchEvent(new Event('input', { bubbles: true }));
+  contrast.value = '1.9';
+  contrast.dispatchEvent(new Event('input', { bubbles: true }));
+  const changed = { bright: bright.value, contrast: contrast.value };
+
+  document.getElementById('btnResetPhotoOpts').click();
+  await new Promise(r => setTimeout(r, 400));
+
+  const stored = JSON.parse(localStorage.getItem('photox4.settings') || '{}').photoOpts || {};
+  return { changed, bright: bright.value, contrast: contrast.value, stored };
+})()`);
+check('reset restores the photo defaults',
+      reset && reset.bright === '0' && Number(reset.contrast) === 1.15
+      && reset.stored.bright === 0 && reset.stored.contrast === 1.15,
+      JSON.stringify(reset));
+
 // ── orientation ─────────────────────────────────────────────────────────────
 
 const landscape = await evaluate(`(async () => {

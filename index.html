@@ -271,6 +271,7 @@
           </div>
           <div class="actions">
             <button id="btnReprocess" class="btn">Apply to all photos</button>
+            <button id="btnResetPhotoOpts" class="btn btn-quiet">Reset to defaults</button>
             <button id="btnClearPhotos" class="btn btn-danger">Remove every photo</button>
           </div>
         </details>
@@ -360,6 +361,21 @@
     </details>
   </aside>
 </div>
+
+<!-- Sync lives outside the panels so it is reachable from every tab. -->
+<button id="fabSync" class="fab" type="button" disabled aria-label="Send everything to the frame">
+  <span class="fab-ring"></span>
+  <span class="fab-face">
+    <svg class="fab-ico" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 11a8 8 0 1 0-.6 3.7"/>
+      <path d="M20 5.5V11h-5.5"/>
+    </svg>
+    <svg class="fab-ico fab-ico-done" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m4.5 12.5 5 5 10-11"/>
+    </svg>
+  </span>
+  <span class="fab-label">Sync</span>
+</button>
 
 <script type="module" src="js/app.js"></script>
 </body>

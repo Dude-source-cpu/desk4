@@ -14,6 +14,9 @@ export const FACES = [
   { id: 'history', name: 'On this day', desc: 'Something that happened on today’s date' },
 ];
 
+/** Factory settings for photo processing, so the UI can offer a reset. */
+export const DEFAULT_PHOTO_OPTS = { fit: 'cover', bright: 0, contrast: 1.15, quality: 0.72 };
+
 const DEFAULTS = {
   interval: 10,
   syncWindow: 20,
@@ -27,7 +30,7 @@ const DEFAULTS = {
   place: null,
   quotes: null, // null means "use the bundled set"
   events: [],
-  photoOpts: { fit: 'cover', bright: 0, contrast: 1.15, quality: 0.72 },
+  photoOpts: { ...DEFAULT_PHOTO_OPTS },
   lastSync: null,
 };
 

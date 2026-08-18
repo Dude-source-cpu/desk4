@@ -574,3 +574,130 @@ details.more p { color: var(--text-2); font-size: .94rem; }
 }
 @keyframes press { 0%, 100% { transform: translateX(0); } 30%, 70% { transform: translateX(-3px); } }
 .press-demo .caption { font-size: .97rem; }
+
+/* ── sync button ─────────────────────────────────────────────────────────────
+   Sync is the one action that matters on every tab, so it floats above the
+   panels rather than living inside the Device one. */
+
+.fab {
+  position: fixed;
+  right: clamp(1rem, 2.5vw, 2rem);
+  bottom: clamp(1rem, 2.5vw, 2rem);
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--surface);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fab[disabled] { cursor: not-allowed; opacity: .45; }
+
+/* Every child sits in the same grid cell so they stack without absolute
+   positioning, which keeps the ring centred at any size. */
+.fab > * { grid-area: 1 / 1; }
+
+.fab-face {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--accent) 0%, var(--accent-ink) 100%);
+  box-shadow: var(--shadow), 0 6px 18px color-mix(in srgb, var(--accent) 42%, transparent);
+  transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), box-shadow .18s ease;
+}
+
+.fab:not([disabled]):hover .fab-face { transform: scale(1.06); }
+.fab:not([disabled]):active .fab-face { transform: scale(.92); transition-duration: .08s; }
+
+.fab-ico {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .3s ease, opacity .2s ease;
+}
+
+.fab-ico-done { opacity: 0; transform: scale(.5); }
+
+.fab-label {
+  align-self: end;
+  margin-bottom: -6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* The ring doubles as the progress track: --p (0..1) drives a conic sweep. */
+.fab-ring {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p, 0) * 360deg), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.fab.is-busy .fab-ring { opacity: 1; }
+.fab.is-busy .fab-ico { animation: fab-spin 1.1s linear infinite; }
+
+.fab.is-done .fab-face { background: linear-gradient(160deg, var(--ok) 0%, color-mix(in srgb, var(--ok) 70%, #000) 100%); }
+.fab.is-done .fab-ico:not(.fab-ico-done) { opacity: 0; transform: scale(.5); }
+.fab.is-done .fab-ico-done { opacity: 1; transform: scale(1); }
+
+/* One-shot press feedback: a ring that expands and fades from under the face. */
+.fab.is-pressed::after {
+  content: "";
+  grid-area: 1 / 1;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: fab-ripple .5s ease-out forwards;
+}
+
+.fab.is-done .fab-face { animation: fab-pop .45s cubic-bezier(.34, 1.56, .64, 1); }
+
+@keyframes fab-spin { to { transform: rotate(360deg); } }
+@keyframes fab-ripple {
+  from { transform: scale(1); opacity: .55; }
+  to { transform: scale(1.9); opacity: 0; }
+}
+@keyframes fab-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab-face, .fab-ico { transition: none; }
+  .fab.is-busy .fab-ico, .fab.is-pressed::after, .fab.is-done .fab-face { animation: none; }
+}
+
+/* Keep the floating button clear of the log/preview column on narrow screens. */
+@media (max-width: 720px) {
+  .fab { width: 76px; height: 76px; }
+  .fab-ring { width: 76px; height: 76px; }
+  .fab-face { width: 60px; height: 60px; }
+  .fab-ico { width: 25px; height: 25px; }
+}

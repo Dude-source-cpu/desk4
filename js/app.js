@@ -168,6 +168,22 @@ function photoOpts() {
   return { ...settings.photoOpts, orientation: settings.orientation };
 }
 
+/** id, settings key, parser, and the <output> that echoes the value. */
+const PHOTO_CONTROLS = [
+  ['optFit', 'fit', v => v, null],
+  ['optBright', 'bright', Number, 'outBright'],
+  ['optContrast', 'contrast', Number, 'outContrast'],
+  ['optQuality', 'quality', Number, 'outQuality'],
+];
+
+/** Pushes settings.photoOpts back onto the controls. */
+function paintPhotoOpts() {
+  for (const [id, key, , outId] of PHOTO_CONTROLS) {
+    $(id).value = settings.photoOpts[key];
+    if (outId) $(outId).textContent = settings.photoOpts[key];
+  }
+}
+
 async function ingest(file) {
   const { jpeg, levels } = await processPhoto(file, photoOpts());
   return {
@@ -473,12 +489,25 @@ function setBusy(state, message) {
   $('progressWrap').hidden = !state;
   if (message) $('progressText').textContent = message;
   if (!state) $('progressBar').style.width = '0%';
+  $('fabSync').classList.toggle('is-busy', state);
+  if (state) $('fabSync').classList.remove('is-done');
   updateButtons();
 }
 
 function setProgress(done, total, message) {
-  $('progressBar').style.width = `${total ? Math.round((done / total) * 100) : 0}%`;
+  const fraction = total ? done / total : 0;
+  $('progressBar').style.width = `${Math.round(fraction * 100)}%`;
+  // The floating button's ring is the same progress, drawn as a conic sweep.
+  $('fabSync').style.setProperty('--p', String(Math.min(1, Math.max(0, fraction))));
   if (message) $('progressText').textContent = message;
+}
+
+/** Flashes the tick on the sync button, then settles back to the arrows. */
+function fabSuccess() {
+  const fab = $('fabSync');
+  fab.classList.add('is-done');
+  clearTimeout(fabSuccess.timer);
+  fabSuccess.timer = setTimeout(() => fab.classList.remove('is-done'), 1800);
 }
 
 function updateButtons() {
@@ -488,6 +517,10 @@ function updateButtons() {
   $('btnSync').disabled = !connected || busy;
   $('btnNextFace').disabled = !connected || busy;
   $('btnBleOff').disabled = !connected || busy;
+  $('fabSync').disabled = !connected || busy;
+  $('fabSync').title = connected
+    ? 'Send everything to the frame'
+    : 'Connect to the frame first';
 }
 
 /** Human-readable "5 minutes ago" style, falling back to a date after a day. */
@@ -578,6 +611,7 @@ async function sync() {
     settings.lastSync = Date.now();
     save();
     setProgress(totalSteps, totalSteps, 'Done');
+    fabSuccess();
 
     const hello = await link.sayHello();
     showStatus(hello);
@@ -697,6 +731,17 @@ function wireDevice() {
   $('btnConnect').addEventListener('click', () => connect());
   $('btnDisconnect').addEventListener('click', () => link.disconnect());
   $('btnSync').addEventListener('click', sync);
+
+  const fab = $('fabSync');
+  fab.addEventListener('click', () => {
+    // The ripple is a one-shot animation, so the class has to come off before
+    // it can be re-added on the next press.
+    fab.classList.remove('is-pressed');
+    void fab.offsetWidth;
+    fab.classList.add('is-pressed');
+    setTimeout(() => fab.classList.remove('is-pressed'), 520);
+    sync();
+  });
   $('btnNextFace').addEventListener('click', () => link.nextFace().catch(err => log(err.message, 'error')));
   $('btnBleOff').addEventListener('click', () => link.bleOff().catch(err => log(err.message, 'error')));
   $('optAutoReconnect').addEventListener('change', event => {
@@ -729,26 +774,28 @@ function wirePhotos() {
   );
   dropzone.addEventListener('drop', event => addFiles(event.dataTransfer.files));
 
-  const opts = settings.photoOpts;
-  const sliders = [
-    ['optFit', 'fit', v => v, null],
-    ['optBright', 'bright', Number, 'outBright'],
-    ['optContrast', 'contrast', Number, 'outContrast'],
-    ['optQuality', 'quality', Number, 'outQuality'],
-  ];
-  for (const [id, key, parse, outId] of sliders) {
+  for (const [id, key, parse, outId] of PHOTO_CONTROLS) {
     const el = $(id);
-    el.value = opts[key];
     const out = outId ? $(outId) : null;
-    if (out) out.textContent = opts[key];
     el.addEventListener('input', () => {
-      opts[key] = parse(el.value);
-      if (out) out.textContent = opts[key];
+      // Written through settings.photoOpts rather than a captured reference, so
+      // resetting the object does not leave these handlers editing the old one.
+      settings.photoOpts[key] = parse(el.value);
+      if (out) out.textContent = settings.photoOpts[key];
       save();
     });
   }
+  paintPhotoOpts();
 
   $('btnReprocess').addEventListener('click', reprocessAll);
+  $('btnResetPhotoOpts').addEventListener('click', async () => {
+    Object.assign(settings.photoOpts, store.DEFAULT_PHOTO_OPTS);
+    save();
+    paintPhotoOpts();
+    log('photo settings reset to defaults');
+    await reprocessAll();
+    await drawPreview();
+  });
   $('btnClearPhotos').addEventListener('click', async () => {
     if (!confirm('Remove every photo? They will also come off the frame the next time you send.')) return;
     await store.clearPhotos();
