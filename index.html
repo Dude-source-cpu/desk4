@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>desk4 — Xteink X4 companion</title>
 <meta name="description" content="Send photos, weather, and quotes to an Xteink X4 over Bluetooth.">
-<meta name="theme-color" content="#f7f1e3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#201d17" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%23b5622f'/><rect x='4' y='2.5' width='8' height='11' rx='1.5' fill='%23fffdf7'/></svg>">
+<meta name="theme-color" content="#f8f4ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1e1c17" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%239d6440'/><rect x='4' y='2.5' width='8' height='11' rx='1.5' fill='%23fdfbf5'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -55,7 +55,6 @@
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"></span>
     <span class="brand-text">desk4</span>
-    <span class="brand-sub">Xteink X4 companion</span>
   </div>
   <div class="conn">
     <span id="connPill" class="pill-status" data-state="off">
@@ -105,9 +104,8 @@
       <h1 class="page-title">Your frame</h1>
 
       <div id="setupCard" class="card hero">
-        <div class="hero-icon"><svg class="ico ico-lg"><use href="#i-bt"/></svg></div>
         <div class="hero-body">
-          <h2>First time here?</h2>
+          <h2>New here?</h2>
           <p>Four short steps and your frame is running.</p>
         </div>
         <div class="hero-actions">
@@ -117,15 +115,13 @@
       </div>
 
       <div class="card">
-        <h2 class="card-title">Send your photos and content</h2>
+        <h2 class="card-title">Connecting</h2>
         <p class="lead">Hold the power button on the frame for two seconds, until it says
-          <strong>Bluetooth is on</strong>. Then send.</p>
+          <strong>Bluetooth is on</strong>. Then press the round Sync button.</p>
         <div class="actions">
-          <button id="btnSync" class="btn btn-primary btn-lg" disabled>
-            <svg class="ico"><use href="#i-check"/></svg>Send to frame
-          </button>
-          <button id="btnNextFace" class="btn" disabled>Skip to next screen</button>
-          <button id="btnBleOff" class="btn" disabled>Turn Bluetooth off</button>
+          <button id="btnSync" class="btn" disabled>Send to frame</button>
+          <button id="btnNextFace" class="btn btn-quiet" disabled>Skip to next screen</button>
+          <button id="btnBleOff" class="btn btn-quiet" disabled>Turn Bluetooth off</button>
         </div>
         <div id="progressWrap" class="progress" hidden>
           <div class="progress-bar"><i id="progressBar"></i></div>
@@ -147,18 +143,18 @@
 
       <div class="grid-2">
         <div class="card">
-          <h2 class="card-title">Condition</h2>
+          <h2 class="card-title">How it’s doing</h2>
           <ul class="stats">
-            <li><svg class="ico"><use href="#i-battery"/></svg><span class="stat-label">Battery</span><span id="stBattery" class="stat-value">—</span></li>
-            <li><svg class="ico"><use href="#i-folder"/></svg><span class="stat-label">Space left</span><span id="stFree" class="stat-value">—</span></li>
-            <li><svg class="ico"><use href="#i-photos"/></svg><span class="stat-label">Photos on frame</span><span id="stPhotos" class="stat-value">—</span></li>
-            <li><svg class="ico"><use href="#i-clock"/></svg><span class="stat-label">Last sent</span><span id="stSync" class="stat-value">—</span></li>
+            <li><span class="stat-label">Battery</span><span id="stBattery" class="stat-value">—</span></li>
+            <li><span class="stat-label">Space left</span><span id="stFree" class="stat-value">—</span></li>
+            <li><span class="stat-label">Photos on frame</span><span id="stPhotos" class="stat-value">—</span></li>
+            <li><span class="stat-label">Last sent</span><span id="stSync" class="stat-value">—</span></li>
           </ul>
           <p class="tech muted small">Clock <span id="stClock">—</span> · <span id="stProto">—</span></p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">Which way up?</h2>
+          <h2 class="card-title">Which way up</h2>
           <div class="seg" role="radiogroup" aria-label="Orientation">
             <button class="seg-btn is-active" data-orientation="portrait" role="radio" aria-checked="true">
               <span class="seg-icon seg-portrait" aria-hidden="true"></span><span>Standing</span>
@@ -173,7 +169,7 @@
       </div>
 
       <div class="card">
-        <h2 class="card-title">How often it changes</h2>
+        <h2 class="card-title">Timing</h2>
         <div class="field-grid">
           <label class="field">
             <span>New screen every</span>
@@ -213,7 +209,7 @@
         <ul id="faceList" class="face-list"></ul>
       </div>
       <div class="card">
-        <h2 class="card-title">Small preferences</h2>
+        <h2 class="card-title">Details</h2>
         <label class="check">
           <input type="checkbox" id="optSunTimes" checked>
           <span>Show sunrise and sunset on the weather screen</span>
@@ -240,9 +236,7 @@
           <input type="file" id="fileInput" accept="image/*" multiple hidden>
           <svg class="ico ico-lg drop-ico"><use href="#i-photos"/></svg>
           <p class="dropzone-title">Drag photos here</p>
-          <p><button id="btnPick" class="btn btn-primary btn-lg">
-            <svg class="ico"><use href="#i-plus"/></svg>Choose photos
-          </button></p>
+          <p><button id="btnPick" class="btn btn-primary btn-lg">Choose photos</button></p>
           <p class="muted small">They’re resized and converted right here in your browser. Nothing is
             uploaded anywhere except your frame.</p>
         </div>
@@ -293,7 +287,7 @@
         <div class="actions">
           <input type="text" id="placeInput" class="input" placeholder="Town or city" autocomplete="off">
           <button id="btnPlaceSearch" class="btn">Search</button>
-          <button id="btnGeo" class="btn"><svg class="ico"><use href="#i-sun"/></svg>Use my location</button>
+          <button id="btnGeo" class="btn">Use my location</button>
         </div>
         <ul id="placeResults" class="place-results" hidden></ul>
         <p id="placeCurrent" class="muted">No location yet — the weather screen will be skipped.</p>

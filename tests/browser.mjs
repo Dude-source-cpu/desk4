@@ -351,7 +351,7 @@ check('sync button stays on every tab', Array.isArray(fabAcrossTabs) && fabAcros
 // ── photo settings reset ────────────────────────────────────────────────────
 
 const reset = await evaluate(`(async () => {
-  document.querySelector('.tab[data-tab="photos"]')?.click();
+  document.querySelector('.tab[data-panel="photos"]')?.click();
   await new Promise(r => setTimeout(r, 120));
   const bright = document.getElementById('optBright');
   const contrast = document.getElementById('optContrast');
@@ -401,11 +401,14 @@ async function scanFaces(orientationLabel) {
       const dark = (x, y) => data[(y * width + x) * 4] < 200;
 
       let ink = 0, leftInk = 0, rightInk = 0, bottomInk = 0, topInk = 0;
+      let minX = width, maxX = 0;
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
           if (!dark(x, y)) continue;
           ink++;
           if (x < width / 2) leftInk++; else rightInk++;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
           // The outermost rows: ink here means something was clipped by the edge
           // rather than laid out inside the margin.
           if (y >= height - 2) bottomInk++;
@@ -414,7 +417,8 @@ async function scanFaces(orientationLabel) {
       }
       results.push({
         face: document.getElementById('previewLabel').textContent,
-        ink, leftInk, rightInk, bottomInk, topInk,
+        ink, leftInk, rightInk, bottomInk, topInk, width,
+        spanFraction: ink ? (maxX - minX) / width : 0,
       });
     }
     return results;
@@ -430,11 +434,22 @@ const blankLandscape = (landscapeFaces || []).filter(f => f.ink < 200);
 check('every landscape face draws something', blankLandscape.length === 0,
       blankLandscape.map(f => `${f.face}: ${f.ink} px`).join('; '));
 
-// The two-column faces should be using both halves of the 800px frame; a face
-// that only inks the left half has fallen back to the portrait stack.
-const lopsided = (landscapeFaces || []).filter(f => f.rightInk * 12 < f.leftInk);
-check('landscape faces use the full width', lopsided.length === 0,
+// The two-column faces should be using both halves of the 800px frame; one that
+// only inks the left half has fallen back to the portrait stack. Photos and the
+// quote are deliberately not two-column, so they are judged differently below.
+const TWO_COLUMN = ['Weather', 'Word of the day', 'On this day', 'Countdown'];
+const lopsided = (landscapeFaces || [])
+  .filter(f => TWO_COLUMN.includes(f.face))
+  .filter(f => f.rightInk * 12 < f.leftInk);
+check('two-column landscape faces use both halves', lopsided.length === 0,
       lopsided.map(f => `${f.face}: ${f.leftInk} left vs ${f.rightInk} right`).join('; '));
+
+// The quote is set to a measure instead: a line running the full 800px is the
+// thing that made it unreadable in landscape.
+const quoteFace = (landscapeFaces || []).find(f => f.face === 'Quote');
+check('landscape quote keeps a readable measure',
+      quoteFace && quoteFace.spanFraction > 0 && quoteFace.spanFraction < 0.8,
+      JSON.stringify(quoteFace));
 
 const portrait = await evaluate(`(async () => {
   document.querySelector('.seg-btn[data-orientation="portrait"]').click();
