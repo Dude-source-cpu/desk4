@@ -43,16 +43,10 @@ function begin(canvas, orientation = 'portrait') {
   return ctx;
 }
 
-/** Mirrors linesThatFit() in the firmware: lines of `lh` that fit above `B`. */
-function linesThatFit(y, lineHeight, cap) {
-  const fits = Math.floor((B - y) / lineHeight);
-  return Math.max(1, Math.min(cap, fits));
-}
-
-function label(ctx, text, y) {
+function label(ctx, text, y, startX = L) {
   ctx.font = `600 15px ${SANS}`;
   ctx.textAlign = 'left';
-  let x = L;
+  let x = startX;
   for (const ch of text) {
     ctx.fillText(ch, x, y);
     x += ctx.measureText(ch).width + 3;
@@ -86,6 +80,54 @@ function wrap(ctx, text, maxWidth, maxLines) {
   }
   if (line && lines.length < maxLines) lines.push(line);
   return lines;
+}
+
+// ── layout helpers, mirroring the same names in Faces.cpp ────────────────────
+
+/** True for the 800x480 frame, where a portrait stack has no room to breathe. */
+function isLandscape() {
+  return PANEL_W > PANEL_H;
+}
+
+/** Left/right column geometry for the landscape variants. */
+function splitColumns(leftPercent, gap = 32) {
+  const leftWidth = Math.floor(((W - gap) * leftPercent) / 100);
+  const rightX = L + leftWidth + gap;
+  return { leftX: L, leftWidth, rightX, rightWidth: R - rightX, dividerX: L + leftWidth + gap / 2 };
+}
+
+function columnDivider(ctx, columns, top, bottom) {
+  if (bottom > top) ctx.fillRect(columns.dividerX, top, 1, bottom - top);
+}
+
+/** The label-and-rule masthead every text face opens with. Returns the y below it. */
+function faceHeader(ctx, text) {
+  let y = MARGIN + 8;
+  label(ctx, text, y);
+  y += 26;
+  rule(ctx, y, true);
+  return y;
+}
+
+/** Sets `text` down the page from `y`, stopping at `bottom`. Returns the y below it. */
+function paragraph(ctx, text, x, width, y, bottom, lineHeight, cap, font) {
+  ctx.font = font;
+  ctx.textAlign = 'left';
+  let cursor = y;
+  const max = Math.max(1, Math.min(cap, Math.floor((bottom - y) / lineHeight)));
+  for (const line of wrap(ctx, text, width, max)) {
+    if (cursor + lineHeight > bottom) break;
+    ctx.fillText(line, x, cursor);
+    cursor += lineHeight;
+  }
+  return cursor;
+}
+
+/** Draws `text` centred on `cx` (rather than the panel centre) at `y`. */
+function centeredOn(ctx, text, cx, y, font) {
+  ctx.font = font;
+  ctx.textAlign = 'center';
+  ctx.fillText(text, cx, y);
 }
 
 // ── weather art, mirroring drawWeatherIcon() in Faces.cpp ────────────────────
@@ -266,47 +308,59 @@ function weatherHeader(ctx, forecast) {
 /** The two-column arrangement the firmware switches to below 480px of height. */
 function weatherLandscape(ctx, forecast, showSunTimes) {
   const ruleY = weatherHeader(ctx, forecast);
-  const gap = 28;
-  const leftWidth = ((W - gap) * 44) / 100;
-  const leftCx = L + leftWidth / 2;
-  const rightLeft = L + leftWidth + gap;
-  const rightWidth = R - rightLeft;
+  const columns = splitColumns(40);
 
-  ctx.fillRect(L + leftWidth + gap / 2, ruleY + 18, 1, B - ruleY - 56);
+  // The footer sits on its own rule so both columns share one baseline to end
+  // against, rather than each stopping wherever its content ran out.
+  const footerLines = showSunTimes && forecast.sunrise ? 2 : 1;
+  const bodyBottom = B - (footerLines * 18 + 12);
+  rule(ctx, bodyBottom);
+  columnDivider(ctx, columns, ruleY + 20, bodyBottom - 12);
 
-  let y = ruleY + 16;
-  weatherIcon(ctx, forecast.icon, leftCx, y + 62, 112);
-  y += 128;
-  ctx.textAlign = 'center';
-  ctx.font = `700 54px ${SANS}`;
-  ctx.fillText(`${forecast.now}°`, leftCx, y);
-  y += 70;
-  ctx.font = `17px ${SANS}`;
-  ctx.fillText(forecast.label, leftCx, y);
-  y += 30;
-  ctx.font = `700 17px ${SANS}`;
-  ctx.fillText(`H ${forecast.hi}°    L ${forecast.lo}°`, leftCx, y);
+  // Left: the poster, centred in its column so it never sits top-heavy.
+  const ICON = 116;
+  const TEMP_H = 70;
+  const LABEL_H = 27;
+  const RANGE_H = 26;
+  const posterHeight = ICON + 14 + TEMP_H + LABEL_H + 8 + RANGE_H;
+  const leftCx = columns.leftX + columns.leftWidth / 2;
 
-  let rightY = ruleY + 16;
+  let y = Math.max(ruleY + 20, ruleY + 20 + (bodyBottom - ruleY - 20 - posterHeight) / 2);
+  weatherIcon(ctx, forecast.icon, leftCx, y + ICON / 2, ICON);
+  y += ICON + 14;
+  centeredOn(ctx, `${forecast.now}°`, leftCx, y, `700 54px ${SANS}`);
+  y += TEMP_H;
+  centeredOn(ctx, forecast.label, leftCx, y, `19px ${SANS}`);
+  y += LABEL_H + 8;
+  centeredOn(ctx, `H ${forecast.hi}°    L ${forecast.lo}°`, leftCx, y, `700 17px ${SANS}`);
+
+  // Right: the two forecast strips, each under its own small label.
+  let rightY = ruleY + 20;
   if (forecast.hours && forecast.hours.length) {
-    hourStrip(ctx, forecast, rightLeft, rightWidth, rightY);
+    label(ctx, 'NEXT HOURS', rightY, columns.rightX);
+    rightY += 20;
+    hourStrip(ctx, forecast, columns.rightX, columns.rightWidth, rightY);
     rightY += 108;
-    ctx.fillRect(rightLeft, rightY, rightWidth, 1);
-    rightY += 14;
+    ctx.fillRect(columns.rightX, rightY, columns.rightWidth, 1);
+    rightY += 18;
   }
-  if (forecast.days && forecast.days.length) dayStrip(ctx, forecast, rightLeft, rightWidth, rightY);
+  if (forecast.days && forecast.days.length && rightY + 100 <= bodyBottom) {
+    label(ctx, 'THE WEEK AHEAD', rightY, columns.rightX);
+    rightY += 20;
+    dayStrip(ctx, forecast, columns.rightX, columns.rightWidth, rightY);
+  }
 
-  let footerY = B - 20;
-  if (showSunTimes && forecast.sunrise) {
-    centered(ctx, `Sunrise ${forecast.sunrise}     Sunset ${forecast.sunset}`, footerY, `11px ${SANS}`);
-    footerY -= 18;
-  }
+  let footerY = bodyBottom + 12;
   centered(
     ctx,
     `Feels ${forecast.feels}°     Wind ${forecast.wind} km/h     Rain ${forecast.precip}%`,
     footerY,
     `11px ${SANS}`,
   );
+  if (footerLines === 2) {
+    footerY += 18;
+    centered(ctx, `Sunrise ${forecast.sunrise}     Sunset ${forecast.sunset}`, footerY, `11px ${SANS}`);
+  }
 }
 
 export function drawWeather(canvas, forecast, showSunTimes, orientation = 'portrait') {
@@ -358,38 +412,74 @@ export function drawQuote(canvas, quote, orientation = 'portrait') {
   const ctx = begin(canvas, orientation);
   if (!quote) return drawMessage(canvas, 'No quotes', 'Add some on the Content tab.', null, orientation);
 
-  const textWidth = W - 24;
+  const text = quote.text ?? quote.t;
+  const author = quote.author ?? quote.a ?? '';
+
+  // A full-width line is unreadable on the 800px frame, so the text is set to a
+  // measure and the whole block is centred in what is left. The quote mark
+  // hangs into the margin at the left of that block.
+  ctx.font = `700 54px ${SANS}`;
+  const markWidth = ctx.measureText('“').width;
+  const measure = isLandscape() ? Math.min(W - markWidth - 40, 560) : W - markWidth - 12;
+  const textX = L + (W - measure) / 2;
+
+  const MARK_H = 46;
+  const topLimit = MARGIN + MARK_H;
+  const available = B - topLimit;
+  const authorHeight = author ? 60 : 0;
+
+  // Which size is right depends on the height actually available, so both
+  // candidates are measured rather than choosing on line count alone.
   let size = 26;
+  let lineHeight = size + 12;
   ctx.font = `${size}px ${SERIF}`;
-  let lines = wrap(ctx, quote.text ?? quote.t, textWidth, 9);
-  if (lines.length >= 9) {
+  let lines = wrap(ctx, text, measure, 12);
+  if (lines.length * lineHeight + authorHeight > available) {
     size = 19;
+    lineHeight = size + 8;
     ctx.font = `${size}px ${SERIF}`;
-    lines = wrap(ctx, quote.text ?? quote.t, textWidth, 13);
+    const cap = Math.max(1, Math.min(16, Math.floor((available - authorHeight) / lineHeight)));
+    lines = wrap(ctx, text, measure, cap);
   }
 
-  const lineHeight = size + 12;
-  const author = quote.author ?? quote.a ?? '';
-  const blockHeight = lines.length * lineHeight + (author ? 60 : 0);
-  let y = Math.max(MARGIN + 40, (PANEL_H - blockHeight) / 2);
+  const blockHeight = lines.length * lineHeight + authorHeight;
+  let y = Math.max(topLimit, topLimit + (available - blockHeight) / 2);
 
   ctx.textAlign = 'left';
   ctx.font = `700 54px ${SANS}`;
-  ctx.fillText('“', L, y - 46);
+  ctx.fillText('“', textX - markWidth, y - MARK_H);
 
   ctx.font = `${size}px ${SERIF}`;
   for (const line of lines) {
-    ctx.fillText(line, L + 12, y);
+    if (y + lineHeight > B) break;
+    ctx.fillText(line, textX, y);
     y += lineHeight;
   }
 
-  if (author) {
-    y += 12;
-    ctx.fillRect(L + 12, y, 48, 2);
+  if (author && y + 40 <= B) {
+    y += 14;
+    ctx.fillRect(textX, y, 48, 2);
     y += 14;
     ctx.font = `italic 15px ${SANS}`;
-    ctx.fillText(author, L + 12, y);
+    ctx.fillText(author, textX, y);
   }
+}
+
+/** The word itself, at the largest size that fits `width`. Returns the y below it. */
+function wordHeadline(ctx, word, x, width, y) {
+  ctx.textAlign = 'left';
+  let size = 54;
+  ctx.font = `700 ${size}px ${SANS}`;
+  if (ctx.measureText(word.word).width > width) {
+    size = 26;
+    ctx.font = `700 ${size}px ${SANS}`;
+  }
+  if (ctx.measureText(word.word).width > width) {
+    size = 19;
+    ctx.font = `700 ${size}px ${SANS}`;
+  }
+  ctx.fillText(word.word, x, y);
+  return y + Math.round(size * 1.36) + 4;
 }
 
 export function drawWord(canvas, word, orientation = 'portrait') {
@@ -398,21 +488,38 @@ export function drawWord(canvas, word, orientation = 'portrait') {
     return drawMessage(canvas, 'No words', 'The built-in list will be sent on the next sync.', null, orientation);
   }
 
-  let y = MARGIN + 8;
-  label(ctx, 'WORD OF THE DAY', y);
-  y += 26;
-  rule(ctx, y, true);
-  y += 40;
-
-  ctx.textAlign = 'left';
-  ctx.font = `700 54px ${SANS}`;
-  if (ctx.measureText(word.word).width > W) ctx.font = `700 26px ${SANS}`;
-  ctx.fillText(word.word, L, y);
-  y += 74;
-
+  const ruleY = faceHeader(ctx, 'WORD OF THE DAY');
   const meta = [word.pron, word.pos].filter(Boolean).join('   |   ');
+  const DEF_LINE = 27;
+  const EX_LINE = 24;
+  const exampleBudget = word.ex ? 44 + 2 * EX_LINE : 0;
+
+  if (isLandscape()) {
+    // The word and how to say it get a narrow left column; the meaning gets the
+    // whole right one, so the definition has real measure to wrap into.
+    const columns = splitColumns(38);
+    columnDivider(ctx, columns, ruleY + 22, B - 8);
+
+    const leftY = wordHeadline(ctx, word, columns.leftX, columns.leftWidth, ruleY + 34);
+    if (meta) {
+      paragraph(ctx, meta, columns.leftX, columns.leftWidth, leftY, B, 22, 3, `italic 15px ${SANS}`);
+    }
+
+    let rightY = paragraph(ctx, word.def, columns.rightX, columns.rightWidth, ruleY + 34, B - exampleBudget,
+                           DEF_LINE, 6, `19px ${SANS}`);
+    if (word.ex && rightY + 44 + EX_LINE <= B) {
+      rightY += 24;
+      ctx.fillRect(columns.rightX, rightY, 48, 2);
+      rightY += 18;
+      paragraph(ctx, word.ex, columns.rightX, columns.rightWidth, rightY, B, EX_LINE, 4, `italic 17px ${SERIF}`);
+    }
+    return;
+  }
+
+  let y = wordHeadline(ctx, word, L, W, ruleY + 40);
   if (meta) {
     ctx.font = `italic 15px ${SANS}`;
+    ctx.textAlign = 'left';
     ctx.fillText(meta, L, y);
     y += 42;
   }
@@ -420,21 +527,13 @@ export function drawWord(canvas, word, orientation = 'portrait') {
   rule(ctx, y);
   y += 22;
 
-  ctx.font = `19px ${SANS}`;
-  for (const line of wrap(ctx, word.def, W, linesThatFit(y, 27, 6))) {
-    ctx.fillText(line, L, y);
-    y += 27;
-  }
+  y = paragraph(ctx, word.def, L, W, y, B - exampleBudget, DEF_LINE, 6, `19px ${SANS}`);
 
-  if (word.ex) {
+  if (word.ex && y + 44 + EX_LINE <= B) {
     y += 26;
     ctx.fillRect(L, y, 48, 2);
     y += 18;
-    ctx.font = `italic 17px ${SERIF}`;
-    for (const line of wrap(ctx, word.ex, W, 5)) {
-      ctx.fillText(line, L, y);
-      y += 24;
-    }
+    paragraph(ctx, word.ex, L, W, y, B, EX_LINE, 5, `italic 17px ${SERIF}`);
   }
 }
 
@@ -444,41 +543,62 @@ export function drawCountdown(canvas, events, orientation = 'portrait') {
     return drawMessage(canvas, 'Nothing scheduled', 'Add a date on the Content tab.', null, orientation);
   }
 
-  let y = MARGIN + 8;
-  label(ctx, 'COUNTING DOWN', y);
-  y += 26;
-  rule(ctx, y, true);
-  y += 48;
-
+  const ruleY = faceHeader(ctx, 'COUNTING DOWN');
   const [next, ...rest] = events;
-  if (next.days === 0) {
-    centered(ctx, 'TODAY', y + 30, `700 26px ${SANS}`);
-  } else {
-    centered(ctx, String(next.days), y, `700 54px ${SANS}`);
-    y += 74;
-    centered(ctx, next.days === 1 ? 'day until' : 'days until', y, `15px ${SANS}`);
-  }
-  y += 34;
+  const landscape = isLandscape();
 
+  // Landscape sets the headline event beside the list; portrait stacks them.
+  const columns = splitColumns(46);
+  const heroX = landscape ? columns.leftX : L;
+  const heroWidth = landscape ? columns.leftWidth : W;
+  const heroCx = heroX + heroWidth / 2;
+  const listX = landscape ? columns.rightX : L;
+  const listWidth = landscape ? columns.rightWidth : W;
+  const listRight = listX + listWidth;
+
+  let y = ruleY + (landscape ? 36 : 48);
+  if (next.days === 0) {
+    centeredOn(ctx, 'TODAY', heroCx, y + 30, `700 26px ${SANS}`);
+    y += 30 + 38;
+  } else {
+    centeredOn(ctx, String(next.days), heroCx, y, `700 54px ${SANS}`);
+    y += 70;
+    centeredOn(ctx, next.days === 1 ? 'day until' : 'days until', heroCx, y, `15px ${SANS}`);
+    y += 22;
+  }
+  y += 22;
+
+  const TITLE_LINE = 38;
   ctx.font = `700 26px ${SANS}`;
-  for (const line of wrap(ctx, next.title, W, 2)) {
-    centered(ctx, line, y, `700 26px ${SANS}`);
-    y += 38;
+  for (const line of wrap(ctx, next.title, heroWidth, 2)) {
+    if (y + TITLE_LINE > B) break;
+    centeredOn(ctx, line, heroCx, y, `700 26px ${SANS}`);
+    y += TITLE_LINE;
   }
 
   if (rest.length) {
-    y += 40;
-    rule(ctx, y);
-    y += 20;
+    let listY;
+    if (landscape) {
+      columnDivider(ctx, columns, ruleY + 22, B - 8);
+      label(ctx, 'ALSO COMING UP', ruleY + 24, listX);
+      listY = ruleY + 48;
+    } else {
+      listY = y + 40;
+      rule(ctx, listY);
+      listY += 20;
+    }
+
+    const ROW = 38;
     for (const event of rest) {
+      if (listY + ROW > B) break;
       const count = event.days === 0 ? 'today' : `${event.days} ${event.days === 1 ? 'day' : 'days'}`;
       ctx.font = `700 17px ${SANS}`;
       ctx.textAlign = 'right';
-      ctx.fillText(count, R, y);
+      ctx.fillText(count, listRight, listY);
       ctx.textAlign = 'left';
       ctx.font = `17px ${SANS}`;
-      ctx.fillText(event.title, L, y);
-      y += 38;
+      ctx.fillText(event.title, listX, listY);
+      listY += ROW;
     }
   }
 }
@@ -490,22 +610,29 @@ export function drawHistory(canvas, entry, orientation = 'portrait') {
                        orientation);
   }
 
-  let y = MARGIN + 8;
-  label(ctx, 'ON THIS DAY', y);
-  y += 26;
-  rule(ctx, y, true);
-  y += 46;
+  const ruleY = faceHeader(ctx, 'ON THIS DAY');
+  const LINE = 40;
 
-  ctx.textAlign = 'left';
-  ctx.font = `700 54px ${SANS}`;
-  ctx.fillText(String(entry.y), L, y);
-  y += 100;
-
-  ctx.font = `26px ${SERIF}`;
-  for (const line of wrap(ctx, entry.t, W, linesThatFit(y, 40, 10))) {
-    ctx.fillText(line, L, y);
-    y += 40;
+  if (isLandscape()) {
+    // The year is the hook, so it becomes a column of its own rather than a
+    // banner that eats a third of the 480px height.
+    const columns = splitColumns(30);
+    columnDivider(ctx, columns, ruleY + 22, B - 8);
+    ctx.textAlign = 'left';
+    ctx.font = `700 54px ${SANS}`;
+    if (entry.y) ctx.fillText(String(entry.y), columns.leftX, ruleY + 40);
+    paragraph(ctx, entry.t, columns.rightX, columns.rightWidth, ruleY + 40, B, LINE, 10, `26px ${SERIF}`);
+    return;
   }
+
+  let y = ruleY + 46;
+  if (entry.y) {
+    ctx.textAlign = 'left';
+    ctx.font = `700 54px ${SANS}`;
+    ctx.fillText(String(entry.y), L, y);
+    y += 100;
+  }
+  paragraph(ctx, entry.t, L, W, y, B, LINE, 10, `26px ${SERIF}`);
 }
 
 /**

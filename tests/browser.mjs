@@ -5,12 +5,11 @@
 //   node tests/browser.mjs [url]
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const URL_UNDER_TEST = process.argv[2] || 'http://localhost:8765/';
-const PORT = 9333;
 
 const profile = mkdtempSync(join(tmpdir(), 'photox4-chrome-'));
 const chrome = spawn(
@@ -21,7 +20,12 @@ const chrome = spawn(
     '--no-sandbox',
     '--no-first-run',
     '--disable-extensions',
-    `--remote-debugging-port=${PORT}`,
+    // Port 0 lets the OS pick, and Chrome writes the real port into the profile
+    // directory. A fixed port meant that a run which crashed before cleanup left
+    // a browser holding it, and the next run silently attached to that stale
+    // browser — with its localStorage already written, so first-visit checks
+    // failed for reasons that had nothing to do with the code under test.
+    '--remote-debugging-port=0',
     `--user-data-dir=${profile}`,
     'about:blank',
   ],
@@ -29,6 +33,22 @@ const chrome = spawn(
 );
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** Reads the port Chrome actually bound, from the file it writes on startup. */
+async function debuggingPort() {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try {
+      const [port] = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n');
+      if (port && Number(port) > 0) return Number(port);
+    } catch {
+      // Chrome has not written it yet.
+    }
+    await sleep(100);
+  }
+  throw new Error('Chrome never reported a debugging port');
+}
+
+const PORT = await debuggingPort();
 
 async function target() {
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -56,6 +76,17 @@ async function cleanup(code) {
   }
   process.exit(code);
 }
+
+// A thrown assertion or a failed evaluate must still take the browser with it,
+// or the next run inherits a half-used one.
+for (const signal of ['uncaughtException', 'unhandledRejection']) {
+  process.on(signal, err => {
+    console.error(err);
+    chrome.kill('SIGKILL');
+    process.exit(1);
+  });
+}
+process.on('SIGINT', () => cleanup(1));
 
 const page = await target();
 const socket = new WebSocket(page.webSocketDebuggerUrl);
@@ -296,6 +327,57 @@ const landscape = await evaluate(`(async () => {
 check('landscape resizes the preview to 800x480', landscape && landscape.w === 800 && landscape.h === 480,
       JSON.stringify(landscape));
 check('landscape restyles the device mock', landscape && landscape.framed === true);
+
+// Every face, in both frames, must keep its content inside the panel. Running
+// off the bottom edge is exactly what the 800x480 frame did before the faces
+// grew landscape-specific layouts, and it is invisible in a portrait-only test.
+async function scanFaces(orientationLabel) {
+  return evaluate(`(async () => {
+    const canvas = document.getElementById('preview');
+    const wait = () => new Promise(r => setTimeout(r, 350));
+    const results = [];
+    for (let i = 0; i < 6; i++) {
+      document.getElementById('btnNextPreview').click();
+      await wait();
+      const ctx = canvas.getContext('2d');
+      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const dark = (x, y) => data[(y * width + x) * 4] < 200;
+
+      let ink = 0, leftInk = 0, rightInk = 0, bottomInk = 0, topInk = 0;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (!dark(x, y)) continue;
+          ink++;
+          if (x < width / 2) leftInk++; else rightInk++;
+          // The outermost rows: ink here means something was clipped by the edge
+          // rather than laid out inside the margin.
+          if (y >= height - 2) bottomInk++;
+          if (y <= 1) topInk++;
+        }
+      }
+      results.push({
+        face: document.getElementById('previewLabel').textContent,
+        ink, leftInk, rightInk, bottomInk, topInk,
+      });
+    }
+    return results;
+  })()`);
+}
+
+const landscapeFaces = await scanFaces('landscape');
+const spilling = (landscapeFaces || []).filter(f => f.bottomInk > 0 || f.topInk > 0);
+check('no landscape face spills past the panel edge', spilling.length === 0,
+      spilling.map(f => `${f.face}: ${f.bottomInk} bottom, ${f.topInk} top`).join('; '));
+
+const blankLandscape = (landscapeFaces || []).filter(f => f.ink < 200);
+check('every landscape face draws something', blankLandscape.length === 0,
+      blankLandscape.map(f => `${f.face}: ${f.ink} px`).join('; '));
+
+// The two-column faces should be using both halves of the 800px frame; a face
+// that only inks the left half has fallen back to the portrait stack.
+const lopsided = (landscapeFaces || []).filter(f => f.rightInk * 12 < f.leftInk);
+check('landscape faces use the full width', lopsided.length === 0,
+      lopsided.map(f => `${f.face}: ${f.leftInk} left vs ${f.rightInk} right`).join('; '));
 
 const portrait = await evaluate(`(async () => {
   document.querySelector('.seg-btn[data-orientation="portrait"]').click();

@@ -179,6 +179,9 @@ async function ingest(file) {
     deviceName: `${crc32(jpeg).toString(16).padStart(8, '0')}.jpg`,
     thumb: thumbFromLevels(levels),
     bytes: jpeg.length,
+    // The shape this photo was cropped to. Sending one cropped for the other
+    // orientation letterboxes it on the panel, so the sync checks this first.
+    orientation: settings.orientation,
   };
 }
 
@@ -203,12 +206,17 @@ async function addFiles(files) {
   log(`${added} photo${added === 1 ? '' : 's'} ready to send`);
 }
 
-async function reprocessAll() {
-  if (!photos.length) return;
-  setBusy(true, 'Re-applying settings…');
+/**
+ * Re-crops `targets` with the current settings and returns how many were
+ * redone. Busy state is the caller's to manage, because one caller runs this
+ * in the middle of a sync that is already showing progress.
+ */
+async function reprocess(targets) {
+  const workable = targets.filter(p => p.original);
+  if (!workable.length) return 0;
+
   let done = 0;
-  for (const photo of photos) {
-    if (!photo.original) continue;
+  for (const photo of workable) {
     try {
       const { jpeg, levels } = await processPhoto(photo.original, photoOpts());
       await store.putPhoto({
@@ -217,15 +225,35 @@ async function reprocessAll() {
         deviceName: `${crc32(jpeg).toString(16).padStart(8, '0')}.jpg`,
         thumb: thumbFromLevels(levels),
         bytes: jpeg.length,
+        orientation: settings.orientation,
       });
     } catch (err) {
       log(`could not reprocess ${photo.name}: ${err.message}`, 'error');
     }
     done++;
-    setProgress(done, photos.length, `Reprocessed ${done} of ${photos.length}`);
+    setProgress(done, workable.length, `Reprocessed ${done} of ${workable.length}`);
   }
   await refreshPhotos();
+  return done;
+}
+
+async function reprocessAll() {
+  if (!photos.length) return;
+  setBusy(true, 'Re-applying settings…');
+  await reprocess(photos);
   setBusy(false);
+}
+
+/**
+ * Redoes only the photos cropped for a different orientation than the one the
+ * device is about to be told to use. Records from before this field existed are
+ * assumed to be portrait, which is what the app defaulted to.
+ */
+async function reprocessMismatched() {
+  const stale = photos.filter(p => (p.orientation || 'portrait') !== settings.orientation);
+  if (!stale.length) return;
+  const done = await reprocess(stale);
+  if (done) log(`re-cropped ${done} photo${done === 1 ? '' : 's'} for ${settings.orientation}`);
 }
 
 async function refreshPhotos() {
@@ -505,6 +533,11 @@ async function sync() {
     ];
     const weatherPayload = content.buildWeather(forecast);
     if (weatherPayload) files.push(['/photox4/weather.json', weatherPayload]);
+
+    // Photos cropped for the other orientation letterbox on the panel. The
+    // Photos tab offers to redo them when the orientation changes, but that
+    // offer is dismissible, so sending is where it is actually guaranteed.
+    await reprocessMismatched();
 
     // Reconcile photos before uploading anything, so a queue that has not
     // changed costs one LIST and nothing else.
